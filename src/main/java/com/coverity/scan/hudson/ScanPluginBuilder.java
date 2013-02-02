@@ -5,6 +5,7 @@ import hudson.Extension;
 import hudson.XmlFile;
 import hudson.util.FormValidation;
 //import org.hudsonci.maven.plugin.builder.MavenBuilder;
+//import hudson.plugins.git.GitSCM;
 import hudson.model.AbstractBuild;
 import hudson.model.Action;
 import hudson.model.BuildListener;
@@ -14,9 +15,13 @@ import hudson.model.Result;
 import hudson.model.Cause;
 import hudson.model.FreeStyleProject;
 import hudson.model.Job;
+import hudson.scm.SCMDescriptor;
 import hudson.scm.SCM;
 import hudson.tasks.Builder;
 import hudson.tasks.BuildStepDescriptor;
+import hudson.tasks.Ant;
+import hudson.tasks.BatchFile;
+import hudson.tasks.Shell;
 import net.sf.json.JSONObject;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.StaplerRequest;
@@ -78,7 +83,7 @@ public class ScanPluginBuilder extends Builder {
     public String getProject() {
         return project;
     }
-    
+
     @Override
     public boolean perform(AbstractBuild build, Launcher launcher, BuildListener listener) {
         // this is where you 'build' the project
@@ -109,10 +114,10 @@ public class ScanPluginBuilder extends Builder {
             listener.getLogger().println("Bonjour, "+name+" " + password + " " + email + " " + project + "!");
         else
             listener.getLogger().println("Hello, "+name+" " + password + " " + email + " " + project + "!");
-        
+
         listener.finished(Result.SUCCESS);
-        
-        
+
+
         // now showing the build object
         listener.started(buildStepCause);
         AbstractProject<?,?> buildProj = build.getProject();
@@ -125,21 +130,21 @@ public class ScanPluginBuilder extends Builder {
         listener.getLogger().println("Its CreationTime is: "+buildProj.getCreationTime());
         listener.getLogger().println("Its next build number is: "+buildProj.getNextBuildNumber());
         listener.getLogger().println("Its current build number is: "+buildProj.getNearestOldBuild(buildProj.getNextBuildNumber()).getNumber());
-        
+
         listener.getLogger().println("build object says the build number is: "+ build.number);
         listener.getLogger().println("build object says the build getNumber is: "+ build.getNumber());
         listener.getLogger().println("build object says the build getDescription is: "+ build.getDescription());
         listener.getLogger().println("build object says the build getDisplayName is: "+ build.getDisplayName());
-        listener.getLogger().println("build object says the build getId is: "+ build.getId()); 
-        listener.getLogger().println("build object says the build getHudsonVersion is: "+ build.getHudsonVersion()); 
-        listener.getLogger().println("build object says the build getDurationString is: "+ build.getDurationString()); 
-        
+        listener.getLogger().println("build object says the build getId is: "+ build.getId());
+        listener.getLogger().println("build object says the build getHudsonVersion is: "+ build.getHudsonVersion());
+        listener.getLogger().println("build object says the build getDurationString is: "+ build.getDurationString());
+
         XmlFile projXml = buildProj.getConfigFile();
-        
+
         listener.getLogger().println("Project config file location:");
         listener.getLogger().println(projXml.toString());
         listener.finished(Result.SUCCESS);
-        
+
         try {
         	//read() => XStream.fromXML(reader)
         	Object theXml=projXml.read();
@@ -150,20 +155,33 @@ public class ScanPluginBuilder extends Builder {
             if ("hudson.model.FreeStyleProject".equals(theXml.getClass().getName())) {
             	FreeStyleProject realProj = (FreeStyleProject) theXml;
             	List projBuilders = realProj.getBuilders();
-            	
+
             	Iterator<Builder> iteratorBuilder = projBuilders.iterator();
             	int i=0;
             	while (iteratorBuilder.hasNext()) {
             		i++;
             		Builder iBuilder = iteratorBuilder.next();
-           
+
             		listener.getLogger().println("builder "+ i + " : ");  // iBuilder.toString() crashes
-            		listener.getLogger().println("builder "+ i + " : " + iBuilder.getClass().toString());  
+            		listener.getLogger().println("builder "+ i + " : " + iBuilder.getClass().toString());
             		if ("org.hudsonci.maven.plugin.builder.MavenBuilder".equals(iBuilder.getClass().getName())) {
-            				
+
             			//MavenBuilder mvnBuilder = (MavenBuilder) iBuilder;
             			//mvnBuilder.getConfiguration().toString();
             		}
+            		if ("hudson.tasks.BatchFile".equals(iBuilder.getClass().getName())) {
+            			BatchFile batchBuilder = (BatchFile) iBuilder;
+            			listener.getLogger().println("The Windows batch command was:" + batchBuilder.getCommand());
+            		}	
+
+            		if ("hudson.tasks.Ant".equals(iBuilder.getClass().getName())) {
+            			Ant antBuilder = (Ant) iBuilder;
+            			listener.getLogger().println("the Ant command was : ant " + antBuilder.getTargets());
+            		}
+            		if ("hudson.tasks.Shell".equals(iBuilder.getClass().getName())) {
+            			Shell shellBuilder = (Shell) iBuilder;
+            			listener.getLogger().println("the shell command was : ant " + shellBuilder.getCommand());
+            		}	
             		
             		Collection<? extends Action> stepActions = iBuilder.getProjectActions(buildProj);
             		listener.getLogger().println("builder "+ i + " : got "+ stepActions.size() +" Actions" );
@@ -182,11 +200,21 @@ public class ScanPluginBuilder extends Builder {
 	            			listener.getLogger().println("builder "+ i + " action " + j + " : " + iAction.toString());
 	            		}
             		}
+
+            		SCM projSCM = realProj.getScm();
             		
-            	}            	
+            		listener.getLogger().println("the SCM is: " + projSCM.getType());
+            		 SCMDescriptor<?> scmDesc = projSCM.getDescriptor();
+            		 listener.getLogger().println("the SCM descriptor is: " + scmDesc.getClass().getName());
+             		if ("hudson.plugins.git.GitSCM".equals(scmDesc.getClass().getName())) {
+            			//GitSCM theSCM = (GitSCM) iBuilder;
+            			//listener.getLogger().println("the shell command was : ant " + shellBuilder.getCommand());
+            		}
+            		
+            	}
             	listener.getLogger().println("");
             	listener.getLogger().println("shorter way to get to the project (without using xml file)");
-            	
+
             	FreeStyleProject realProj2 = (FreeStyleProject) build.getProject();
             	List projBuilders2 = realProj2.getBuilders();
             	Iterator<Builder> iteratorBuilder2 = projBuilders2.iterator();
@@ -197,7 +225,7 @@ public class ScanPluginBuilder extends Builder {
             		 listener.getLogger().println("loop + i");
             		Builder iBuilder2 = iteratorBuilder2.next();
             		 listener.getLogger().println("got builder2 "+i);
-            	  		listener.getLogger().println("builder2 "+ i + " : " + iBuilder2.getClass().toString());  
+            	  		listener.getLogger().println("builder2 "+ i + " : " + iBuilder2.getClass().toString());
                		Collection<? extends Action> stepActions2 = iBuilder2.getProjectActions(realProj2);
             		if (0==stepActions2.size()) {
             			listener.getLogger().println("This builder2 "+i+" contains no action");
@@ -212,8 +240,8 @@ public class ScanPluginBuilder extends Builder {
 	            		}
             		}
             	}
-            	
-            	
+
+
             	/* List<JobProperty<? super Job>> allProperties = build.getProject().getAllProperties();
             	 Iterator<JobProperty<? super Job>> iteratorJob = allProperties.iterator();
             	 i=0;
@@ -222,13 +250,13 @@ public class ScanPluginBuilder extends Builder {
             		i++;
             		 listener.getLogger().println("job loop + i");
             		 JobProperty<? super Job> iJob = iteratorJob.next();
-            		
+
             	}*/
-            	
+
             } else {
             	 listener.getLogger().println("Scan Builder only supports FreeStyleProject ");
             }
-            
+
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -243,15 +271,15 @@ public class ScanPluginBuilder extends Builder {
        // listener.getLogger().println("scm.toString="+projSCM.toString());
        //launcher.
        //listener.
-        
+
         // Creating link to the report
        // ScanPluginReport report = new ScanPluginReport(buildProj.getFullName(),buildProj.getNearestOldBuild(buildProj.getNextBuildNumber()).getNumber());
         ScanPluginReport report = new ScanPluginReport(buildProj.getFullName(),build.getNumber());
-        
+
         build.addAction(report);
         //build.getActions().add(report);  // identical
-        
-        
+
+
         listener.finished(Result.SUCCESS);
         return true;
     }
@@ -308,7 +336,7 @@ public class ScanPluginBuilder extends Builder {
          * This human readable name is used in the configuration screen.
          */
         public String getDisplayName() {
-            return "Covery Scan";
+            return "Coverity Scan";
         }
 
         @Override

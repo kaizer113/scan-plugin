@@ -2,41 +2,80 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
     
     <modelVersion>4.0.0</modelVersion>
-	
+<!--	no comment -->
     <parent>
         <groupId>org.jvnet.hudson.plugins</groupId>
         <artifactId>hudson-plugin-parent</artifactId>
-        <version>2.1.2</version><!-- which version of Hudson is this plugin built against? -->
+        <version>2.2.0</version>
     </parent>
+    <dependencies>
+            <dependency>
+                <groupId>org.jvnet.hudson.main</groupId>
+                <artifactId>hudson-test-framework</artifactId>
+                <scope>test</scope>
+                <version>${project.parent.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>org.jvnet.hudson.main</groupId>
+                        <artifactId>rest-plugin</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+    </dependencies>
+    <repositories>
+        <repository>
+            <id>central</id>
+            <url>http://repo.maven.apache.org/maven2/</url>
+        </repository>
+        <repository>
+	    <id>repo1</id>
+	    <url>http://repo1.maven.org/maven2/</url>
+        </repository>
+    </repositories>
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.jvnet.hudson.tools</groupId>
+                <artifactId>maven-hpi-plugin</artifactId>
+                <extensions>true</extensions>
+                <configuration>
+                    <showDeprecation>true</showDeprecation>
+                    <disabledTestInjection>true</disabledTestInjection>
+                </configuration>
+            </plugin>
+        </plugins>
+   </build>
+
+
+<!-- this fails with java.lang.NoClassDefFoundError: org/codehaus/plexus/util/StringUtils 
+    <parent>
+        <groupId>org.eclipse.hudson.plugins</groupId>
+        <artifactId>hudson-plugin-parent</artifactId>
+        <version>3.0.0</version>
+    </parent>
+    <dependencies>        
+            <dependency>
+                <groupId>org.eclipse.hudson</groupId>
+                <artifactId>hudson-inject</artifactId>
+                <version>3.0.0</version>
+            </dependency>
+    </dependencies>
+-->
 
     <groupId>com.coverity.scan.hudson</groupId>
     <artifactId>scan-plugin</artifactId>
     <version>1.0-SNAPSHOT</version>
-
     <packaging>hpi</packaging>
 
     <name>Coverity Scan plugin</name>
-    
-      <description>This plug-in allows to enable Coverity scan on any hudson job.</description>
+    <description>This plug-in allows to enable Coverity scan on any Hudson job.</description>
+    <url>https://github.com/kaizer113/scan-plugin</url>
 
-
-       <repositories>
-         <repository>
-           <id>central</id>
-           <url>http://repo.maven.apache.org/maven2/</url>
-         </repository>
-           <repository>
-	            <id>repo1</id>
-	            <url>http://repo1.maven.org/maven2/</url>
-         </repository>
-  </repositories>
-  
-  
-     <dependencies>
- 
-
-  </dependencies>
-   
-  
-  
+    <licenses>
+        <license>
+            <name>Eclipse Public License - v 1.0</name>
+            <url>http://www.eclipse.org/org/documents/epl-v10.html</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
 </project>

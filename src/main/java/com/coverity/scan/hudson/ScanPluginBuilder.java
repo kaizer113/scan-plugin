@@ -153,10 +153,12 @@ public class ScanPluginBuilder extends Builder {
         	// most of the times this should be hudson.model.FreeStyleProject
             listener.getLogger().println("object type "+theXml.getClass().getName());
             if ("hudson.model.FreeStyleProject".equals(theXml.getClass().getName())) {
+            	listener.getLogger().println("Rebuilding the FreeStyleProject from the Xml config file");
             	FreeStyleProject realProj = (FreeStyleProject) theXml;
             	List projBuilders = realProj.getBuilders();
 
             	Iterator<Builder> iteratorBuilder = projBuilders.iterator();
+            	
             	int i=0;
             	while (iteratorBuilder.hasNext()) {
             		i++;
@@ -180,7 +182,7 @@ public class ScanPluginBuilder extends Builder {
             		}
             		if ("hudson.tasks.Shell".equals(iBuilder.getClass().getName())) {
             			Shell shellBuilder = (Shell) iBuilder;
-            			listener.getLogger().println("the shell command was : ant " + shellBuilder.getCommand());
+            			listener.getLogger().println("the shell command was : " + shellBuilder.getCommand());
             		}	
             		
             		Collection<? extends Action> stepActions = iBuilder.getProjectActions(buildProj);
@@ -200,67 +202,72 @@ public class ScanPluginBuilder extends Builder {
 	            			listener.getLogger().println("builder "+ i + " action " + j + " : " + iAction.toString());
 	            		}
             		}
-
-            		SCM projSCM = realProj.getScm();
-            		
-            		listener.getLogger().println("the SCM is: " + projSCM.getType());
-            		 SCMDescriptor<?> scmDesc = projSCM.getDescriptor();
-            		 listener.getLogger().println("the SCM descriptor is: " + scmDesc.getClass().getName());
-             		if ("hudson.plugins.git.GitSCM".equals(scmDesc.getClass().getName())) {
-            			//GitSCM theSCM = (GitSCM) iBuilder;
-            			//listener.getLogger().println("the shell command was : ant " + shellBuilder.getCommand());
-            		}
-            		
-            	}
-            	listener.getLogger().println("");
-            	listener.getLogger().println("shorter way to get to the project (without using xml file)");
-
-            	FreeStyleProject realProj2 = (FreeStyleProject) build.getProject();
-            	List projBuilders2 = realProj2.getBuilders();
-            	Iterator<Builder> iteratorBuilder2 = projBuilders2.iterator();
-            	 i=0;
-            	 listener.getLogger().println("got iterator");
-            	while (iteratorBuilder2.hasNext()) {
-            		i++;
-            		 listener.getLogger().println("loop + i");
-            		Builder iBuilder2 = iteratorBuilder2.next();
-            		 listener.getLogger().println("got builder2 "+i);
-            	  		listener.getLogger().println("builder2 "+ i + " : " + iBuilder2.getClass().toString());
-               		Collection<? extends Action> stepActions2 = iBuilder2.getProjectActions(realProj2);
-            		if (0==stepActions2.size()) {
-            			listener.getLogger().println("This builder2 "+i+" contains no action");
-            		} else {
-            			listener.getLogger().println("This builder2  "+i+" contains action");
-	            		Iterator<? extends Action> iteratorActions2 = stepActions2.iterator();
-	            		int j=0;
-	            		while (iteratorActions2.hasNext()) {
-	            			j++;
-	            			Action iAction2 = iteratorActions2.next();
-	            			listener.getLogger().println("builder2 "+ i + " action " + j + " : " + iAction2.toString());
-	            		}
-            		}
             	}
 
 
-            	/* List<JobProperty<? super Job>> allProperties = build.getProject().getAllProperties();
-            	 Iterator<JobProperty<? super Job>> iteratorJob = allProperties.iterator();
-            	 i=0;
-            	 listener.getLogger().println("got job iterator");
-            	while (iteratorJob.hasNext()) {
-            		i++;
-            		 listener.getLogger().println("job loop + i");
-            		 JobProperty<? super Job> iJob = iteratorJob.next();
-
-            	}*/
-
+            		
             } else {
-            	 listener.getLogger().println("Scan Builder only supports FreeStyleProject ");
+            	listener.getLogger().println("This is not a FreeStyleProject");
             }
-
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
+        listener.getLogger().println("");
+        listener.getLogger().println("shorter way to get to the project (without using xml file)");
+
+        FreeStyleProject realProj = (FreeStyleProject) build.getProject();
+    	List projBuilders = realProj.getBuilders();
+
+    	Iterator<Builder> iteratorBuilder = projBuilders.iterator();
+    	
+    	int i=0;
+    	while (iteratorBuilder.hasNext()) {
+    		i++;
+    		Builder iBuilder = iteratorBuilder.next();
+
+    		listener.getLogger().println("builder "+ i + " : ");  // iBuilder.toString() crashes
+    		listener.getLogger().println("builder "+ i + " : " + iBuilder.getClass().toString());
+    		if ("org.hudsonci.maven.plugin.builder.MavenBuilder".equals(iBuilder.getClass().getName())) {
+
+    			//MavenBuilder mvnBuilder = (MavenBuilder) iBuilder;
+    			//mvnBuilder.getConfiguration().toString();
+    		}
+    		if ("hudson.tasks.BatchFile".equals(iBuilder.getClass().getName())) {
+    			BatchFile batchBuilder = (BatchFile) iBuilder;
+    			listener.getLogger().println("The Windows batch command was:" + batchBuilder.getCommand());
+    		}	
+
+    		if ("hudson.tasks.Ant".equals(iBuilder.getClass().getName())) {
+    			Ant antBuilder = (Ant) iBuilder;
+    			listener.getLogger().println("the Ant command was : ant " + antBuilder.getTargets());
+    		}
+    		if ("hudson.tasks.Shell".equals(iBuilder.getClass().getName())) {
+    			Shell shellBuilder = (Shell) iBuilder;
+    			listener.getLogger().println("the shell command was : " + shellBuilder.getCommand());
+    		}	
+    		
+    		Collection<? extends Action> stepActions = iBuilder.getProjectActions(buildProj);
+    		listener.getLogger().println("builder "+ i + " : got "+ stepActions.size() +" Actions" );
+    		Iterator<? extends Action> iteratorActions = stepActions.iterator();
+    		if (0==stepActions.size()) {
+    			listener.getLogger().println("This builder "+ i + " contains no action");
+    		} else {
+    			listener.getLogger().println("This builder "+ i + " contains "+stepActions.size()+ " actions");
+        		listener.getLogger().println("builder "+ i + " : got iterator ");
+        		int j=0;
+        		while (iteratorActions.hasNext()) {
+        			j++;
+        			listener.getLogger().println("builder "+ i + " Action " + j);
+        			Action iAction = iteratorActions.next();
+        			listener.getLogger().println("builder "+ i + " Action " + j + " content:");
+        			listener.getLogger().println("builder "+ i + " action " + j + " : " + iAction.toString());
+        		}
+    		}
+    	}
+
+
+
         // further tries to extract the build command
         listener.getLogger().println("");
         listener.getLogger().println("Further tries to extract the build command");
@@ -268,7 +275,15 @@ public class ScanPluginBuilder extends Builder {
         SCM projSCM = buildProj.getScm();
         listener.getLogger().println("scm.toString="+projSCM.toString());
         listener.getLogger().println("scm.type="+projSCM.getType());
-       // listener.getLogger().println("scm.toString="+projSCM.toString());
+		 SCMDescriptor<?> scmDesc = projSCM.getDescriptor();
+		 listener.getLogger().println("the SCM descriptor is: " + scmDesc.getClass().getName());
+		 listener.getLogger().println("the SCM descriptorUrl is: " + scmDesc.getDescriptorUrl());
+		// listener.getLogger().println("the SCM descriptorUrl is: " + scmDesc.getDescriptorUrl());
+ 		if ("hudson.plugins.git.GitSCM".equals(scmDesc.getClass().getName())) {
+			//GitSCM theSCM = (GitSCM) (projSCM.getDescriptor());
+			//listener.getLogger().println("the git command was : getGitTool " + theSCM.getGitTool());
+		}
+ 		
        //launcher.
        //listener.
 

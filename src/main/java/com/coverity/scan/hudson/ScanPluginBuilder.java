@@ -4,8 +4,8 @@ import hudson.Launcher;
 import hudson.Extension;
 import hudson.XmlFile;
 import hudson.util.FormValidation;
-//import org.hudsonci.maven.plugin.builder.MavenBuilder;
-//import hudson.plugins.git.GitSCM;
+import org.hudsonci.maven.plugin.builder.MavenBuilder;
+import hudson.plugins.git.GitSCM;
 import hudson.model.AbstractBuild;
 import hudson.model.Action;
 import hudson.model.BuildListener;
@@ -13,6 +13,7 @@ import hudson.model.JobProperty;
 import hudson.model.AbstractProject;
 import hudson.model.Result;
 import hudson.model.Cause;
+import hudson.model.Descriptor.FormException;
 import hudson.model.FreeStyleProject;
 import hudson.model.Job;
 import hudson.scm.SCMDescriptor;
@@ -33,6 +34,8 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Sample {@link Builder}.
@@ -280,9 +283,15 @@ public class ScanPluginBuilder extends Builder {
 		 listener.getLogger().println("the SCM descriptorUrl is: " + scmDesc.getDescriptorUrl());
 		// listener.getLogger().println("the SCM descriptorUrl is: " + scmDesc.getDescriptorUrl());
  		if ("hudson.plugins.git.GitSCM".equals(scmDesc.getClass().getName())) {
-			//GitSCM theSCM = (GitSCM) (projSCM.getDescriptor());
-			//listener.getLogger().println("the git command was : getGitTool " + theSCM.getGitTool());
-		}
+	            GitSCM theSCM;
+                    try {
+                        theSCM = (GitSCM) (projSCM.getDescriptor().newInstance(null, null));
+                        listener.getLogger().println("the git command was : getGitTool " + theSCM.getGitTool());
+                    } catch (FormException ex) {
+                        Logger.getLogger(ScanPluginBuilder.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+                }
+			 
  		
        //launcher.
        //listener.

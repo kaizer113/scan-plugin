@@ -5,6 +5,10 @@ import hudson.Extension;
 import hudson.XmlFile;
 import hudson.util.FormValidation;
 import org.hudsonci.maven.plugin.builder.MavenBuilder;
+import org.hudsonci.maven.plugin.builder.MavenBuilderDescriptor;
+//import org.hudsonci.utils.plugin.ui.RenderableEnum;
+import org.eclipse.jgit.transport.RemoteConfig;
+import org.eclipse.jgit.transport.URIish;
 import hudson.plugins.git.GitSCM;
 import hudson.model.AbstractBuild;
 import hudson.model.Action;
@@ -233,8 +237,18 @@ public class ScanPluginBuilder extends Builder {
     		listener.getLogger().println("builder "+ i + " : " + iBuilder.getClass().toString());
     		if ("org.hudsonci.maven.plugin.builder.MavenBuilder".equals(iBuilder.getClass().getName())) {
 
-    			//MavenBuilder mvnBuilder = (MavenBuilder) iBuilder;
-    			//mvnBuilder.getConfiguration().toString();
+    			MavenBuilder mvnBuilder = (MavenBuilder) iBuilder;
+    			listener.getLogger().println("mvnBuilder.toString()" + mvnBuilder.toString());
+    			MavenBuilderDescriptor mvnBuilderDesc=mvnBuilder.getDescriptor();
+    			listener.getLogger().println("mvnBuilderDesc.toString()" + mvnBuilderDesc.toString());
+    			listener.getLogger().println("mvnBuilderDesc.getDisplayName()" + mvnBuilderDesc.getDisplayName());
+    			listener.getLogger().println("mvnBuilderDesc.getConfigFile().toString()" + mvnBuilderDesc.getConfigFile().toString());
+    			
+    			//RenderableEnum[] mvnMake = mvnBuilderDesc.getMakeModeValues();
+    			listener.getLogger().println("The Maven command was : mvn " + mvnBuilder.getConfig().getGoals());
+    			
+    			
+    		
     		}
     		if ("hudson.tasks.BatchFile".equals(iBuilder.getClass().getName())) {
     			BatchFile batchBuilder = (BatchFile) iBuilder;
@@ -282,15 +296,49 @@ public class ScanPluginBuilder extends Builder {
 		 listener.getLogger().println("the SCM descriptor is: " + scmDesc.getClass().getName());
 		 listener.getLogger().println("the SCM descriptorUrl is: " + scmDesc.getDescriptorUrl());
 		// listener.getLogger().println("the SCM descriptorUrl is: " + scmDesc.getDescriptorUrl());
- 		if ("hudson.plugins.git.GitSCM".equals(scmDesc.getClass().getName())) {
+ 		if ("hudson.plugins.git.GitSCM".equals(projSCM.getType())) {
 	            GitSCM theSCM;
-                    try {
-                        theSCM = (GitSCM) (projSCM.getDescriptor().newInstance(null, null));
-                        listener.getLogger().println("the git command was : getGitTool " + theSCM.getGitTool());
-                    } catch (FormException ex) {
-                        Logger.getLogger(ScanPluginBuilder.class.getName()).log(Level.SEVERE, null, ex);
-                    }
-                }
+                   // try {
+                    	theSCM = (GitSCM) projSCM;
+                        listener.getLogger().println("the git command was : getGitConfigName " + theSCM.getGitConfigName());
+                    	listener.getLogger().println("the git command was : getGitConfigEmail " + theSCM.getGitConfigEmail());
+                    	listener.getLogger().println("the git command was : getGitTool " + theSCM.getGitTool());
+                    	//<? extends RemoteConfig>
+                        Iterator  repositoryIterator = theSCM.getRepositories().iterator();
+                        //org.eclipse.jgit.transport.RemoteConfig
+                        
+                       // if (0==repositoryIterator.size()) {
+    					//	listener.getLogger().println("This Git Scm  contains no Repositories");
+    					//} else {
+    					//	listener.getLogger().println("This Git Scm contains "+repositoryIterator.size()+ " Repositories");
+        					int j=0;
+        					while (repositoryIterator.hasNext()) {
+        					j++;
+        					listener.getLogger().println("Git Scm  repository " + j);
+        					RemoteConfig jConfig = (RemoteConfig) repositoryIterator.next();
+        					listener.getLogger().println("Git Scm  repository  " + j + " content:");
+        					listener.getLogger().println("Git Scm  repository  " + j + " : " + jConfig.getName());
+        					listener.getLogger().println("Git Scm  repository  " + j + " : " + jConfig.getName());
+        						Iterator  URIIterator = jConfig.getURIs().iterator();
+	        					int k=0;
+	        					while (URIIterator.hasNext()) {
+	        					k++;
+	        					listener.getLogger().println("Git Scm " + j + " URI " +k);
+	        					URIish kURI = (URIish) URIIterator.next();
+	        					listener.getLogger().println("Git Scm  repository  " + j + " URI " +k+ " content:");
+	        					listener.getLogger().println("Git Scm  repository  " + j + " URI " +k+ " toPrivateString : " + kURI.toPrivateString());
+	        					listener.getLogger().println("Git Scm  repository  " + j + " URI " +k+ " getHost : " + kURI.getHost());
+	        				}
+        				}
+    				//}
+                      
+                   // } catch (FormException ex) {
+                    //    Logger.getLogger(ScanPluginBuilder.class.getName()).log(Level.SEVERE, null, ex);
+                   // }
+                    //theSCM = (GitSCM) (projSCM.getDescriptor().newInstance(null, null));
+        } else {
+        	listener.getLogger().println("this SCM is not GIT");
+        }
 			 
  		
        //launcher.

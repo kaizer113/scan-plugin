@@ -1,10 +1,14 @@
 <j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define" xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form">
-
+    <script type="text/javascript">
+        function openRegister() {
+	           window.open('http://scan.coverity.com/hudson_project_register.html');
+        }
+    </script>
   <f:advanced title="What is Coverity Scan?" align="left" >
   	<f:entry title=""> 
 What is Coverity Scan? <a href="http://scan.coverity.com/faq.html" target="faq">http://scan.coverity.com/faq.html</a>
 </f:entry><f:entry title="">
-Not Registered? <a href="http://scan.coverity.com/start/" target="register">http://scan.coverity.com/start</a>
+Not Registered? <a href="http://scan.coverity.com/start/" target="register">http://scan.coverity.com/start</a> <a href="#" onclick="openRegister()">Register</a>
 </f:entry>
   </f:advanced>
   <f:entry title="User Name" field="name"><f:textbox /> </f:entry>

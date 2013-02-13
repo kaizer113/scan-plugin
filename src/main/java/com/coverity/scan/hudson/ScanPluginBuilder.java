@@ -1,5 +1,13 @@
 package com.coverity.scan.hudson;
 
+import java.net.URL;
+import java.net.HttpURLConnection;
+import java.net.URLEncoder;
+import java.io.DataOutputStream;
+import java.io.InputStream;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.io.UnsupportedEncodingException;
 import hudson.Launcher;
 import hudson.Extension;
 import hudson.XmlFile;
@@ -22,6 +30,10 @@ import hudson.model.FreeStyleProject;
 import hudson.model.Job;
 import hudson.scm.SCMDescriptor;
 import hudson.scm.SCM;
+import hudson.scm.CVSSCM;
+import hudson.scm.ModuleLocation;
+import hudson.scm.SubversionSCM;
+import java.util.Arrays;
 import hudson.tasks.Builder;
 import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.Ant;
@@ -62,6 +74,11 @@ public class ScanPluginBuilder extends Builder {
 	private String password;
 	private String email;
 	private String project;
+	private String build_number;
+	private String proj_scm;
+	private String scm_command;
+	private String proj_builder;
+	private String build_command;
 
     // Fields in config.jelly must match the parameter names in the "DataBoundConstructor"
     @DataBoundConstructor
@@ -90,12 +107,93 @@ public class ScanPluginBuilder extends Builder {
     public String getProject() {
         return project;
     }
+    
+    public String getBuildNumber() {
+        return build_number;
+    }
+    
+	public String getProjSCM() {
+        return proj_scm;
+    }
+        
+	public String getSCMCommand() {
+        return scm_command;
+    }
+        
+    public String getProjBuilder() {
+        return proj_builder;
+    }
+    
+    public String getBuildCommand() {
+        return build_command;
+    }
+    
+    private String encodeUTF8(String str){
+    	try {
+    		return URLEncoder.encode(str, "UTF-8");
+    	} catch (UnsupportedEncodingException ex){
+    		Logger.getLogger(ScanPluginBuilder.class.getName()).log(Level.SEVERE, null, ex);
+    		return "Failed to encode";
+    	}    		
+    }
+    
+    private boolean submitToCoverity(BuildListener listener){
+        URL submitURL;
+   		HttpURLConnection connection = null;  
+   		
+   		String urlParameters = "username="+encodeUTF8(getName());
+   		urlParameters += "&password="+encodeUTF8(getPassword());
+   		urlParameters += "&project="+encodeUTF8(getProject());
+   		urlParameters += "&email="+encodeUTF8(getEmail());
+   		urlParameters += "&build_number="+encodeUTF8(getBuildNumber());
+   		urlParameters += "&proj_scm="+encodeUTF8(getProjSCM());
+   		urlParameters += "&proj_builder="+encodeUTF8(getProjBuilder());
+   		urlParameters += "&build_command="+encodeUTF8(getBuildCommand());
+   		urlParameters += "&scm_command="+encodeUTF8(getSCMCommand());
+   		
+    	try {
+      	    //Create connection
+      		submitURL = new URL(ScanPluginConfiguration.SUBMIT_URL);
+            connection = (HttpURLConnection)submitURL.openConnection();
+            connection.setRequestMethod("POST");
+            connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
+			connection.setRequestProperty("Content-Length", "" + Integer.toString(urlParameters.getBytes().length));
+            connection.setRequestProperty("Content-Language", "en-US");  
+      		connection.setUseCaches (false);
+      		connection.setDoInput(true);
+      		connection.setDoOutput(true);
+
+			listener.getLogger().println("Options sent to Coverity' are: "+urlParameters);
+			
+      		//Send request
+      		DataOutputStream wr = new DataOutputStream (connection.getOutputStream ());
+     		wr.writeBytes (urlParameters);
+      		wr.flush ();
+      		wr.close ();
+
+      		//Get Response	
+      		InputStream is = connection.getInputStream();
+      		BufferedReader rd = new BufferedReader(new InputStreamReader(is));
+      		String line;
+      		StringBuffer response = new StringBuffer(); 
+      		while((line = rd.readLine()) != null) {
+        	response.append(line);
+        	response.append('\r');
+      		}
+      		rd.close();
+      		listener.getLogger().println("Coverity's response was"+response.toString());
+    	} catch (Exception e) {
+			listener.getLogger().println("Failed to submit build to Coverity");
+      		e.printStackTrace();
+      		return false;
+    	} finally {
+      		if(connection != null) connection.disconnect(); 
+    	}
+   	 	return true;
+    }
 
     @Override
     public boolean perform(AbstractBuild build, Launcher launcher, BuildListener listener) {
-        // this is where you 'build' the project
-        // since this is a dummy, we just say 'hello world' and call that a build
-
 
 		List<Cause> buildStepCause = new ArrayList();
 		 buildStepCause.add(new Cause() {
@@ -103,17 +201,6 @@ public class ScanPluginBuilder extends Builder {
 			 return "Build Step started by Coverity Scan plugin Builder";
 		   }
 		 });
-		 buildStepCause.add(new Cause() {
-			   public String getShortDescription() {
-				 return "Build Step showing Build object";
-			   }
-			 });
-		 buildStepCause.add(new Cause() {
-			   public String getShortDescription() {
-				 return "Build Step showing Launcher object";
-			   }
-			 });
-
         listener.started(buildStepCause);
 
         // this also shows how you can consult the global configuration of the builder
@@ -122,106 +209,16 @@ public class ScanPluginBuilder extends Builder {
         else
             listener.getLogger().println("Hello, "+name+" " + password + " " + email + " " + project + "!");
 
-        listener.finished(Result.SUCCESS);
-
-
         // now showing the build object
-        listener.started(buildStepCause);
         AbstractProject<?,?> buildProj = build.getProject();
         listener.getLogger().println("This project is called: "+buildProj.getName());
-        listener.getLogger().println("Its unique full name is: "+buildProj.getFullName());
-        listener.getLogger().println("Its display name is: "+buildProj.getDisplayName());
-        listener.getLogger().println("Its BuildStatusUrl is: "+buildProj.getBuildStatusUrl());
-        listener.getLogger().println("Its AssignedLabel is: "+buildProj.getAssignedLabelString());
-        listener.getLogger().println("Its CreatedBy is: "+buildProj.getCreatedBy());
-        listener.getLogger().println("Its CreationTime is: "+buildProj.getCreationTime());
-        listener.getLogger().println("Its next build number is: "+buildProj.getNextBuildNumber());
-        listener.getLogger().println("Its current build number is: "+buildProj.getNearestOldBuild(buildProj.getNextBuildNumber()).getNumber());
-
-        listener.getLogger().println("build object says the build number is: "+ build.number);
         listener.getLogger().println("build object says the build getNumber is: "+ build.getNumber());
-        listener.getLogger().println("build object says the build getDescription is: "+ build.getDescription());
-        listener.getLogger().println("build object says the build getDisplayName is: "+ build.getDisplayName());
-        listener.getLogger().println("build object says the build getId is: "+ build.getId());
-        listener.getLogger().println("build object says the build getHudsonVersion is: "+ build.getHudsonVersion());
-        listener.getLogger().println("build object says the build getDurationString is: "+ build.getDurationString());
+        build_number=Integer.toString(build.getNumber());
 
         XmlFile projXml = buildProj.getConfigFile();
-
         listener.getLogger().println("Project config file location:");
         listener.getLogger().println(projXml.toString());
-        listener.finished(Result.SUCCESS);
-
-        try {
-        	//read() => XStream.fromXML(reader)
-        	Object theXml=projXml.read();
-        	listener.getLogger().println("Project config file:");
-            //listener.getLogger().println(theXml.toString());
-        	// most of the times this should be hudson.model.FreeStyleProject
-            listener.getLogger().println("object type "+theXml.getClass().getName());
-            if ("hudson.model.FreeStyleProject".equals(theXml.getClass().getName())) {
-            	listener.getLogger().println("Rebuilding the FreeStyleProject from the Xml config file");
-            	FreeStyleProject realProj = (FreeStyleProject) theXml;
-            	List projBuilders = realProj.getBuilders();
-
-            	Iterator<Builder> iteratorBuilder = projBuilders.iterator();
-            	
-            	int i=0;
-            	while (iteratorBuilder.hasNext()) {
-            		i++;
-            		Builder iBuilder = iteratorBuilder.next();
-
-            		listener.getLogger().println("builder "+ i + " : ");  // iBuilder.toString() crashes
-            		listener.getLogger().println("builder "+ i + " : " + iBuilder.getClass().toString());
-            		if ("org.hudsonci.maven.plugin.builder.MavenBuilder".equals(iBuilder.getClass().getName())) {
-
-            			//MavenBuilder mvnBuilder = (MavenBuilder) iBuilder;
-            			//mvnBuilder.getConfiguration().toString();
-            		}
-            		if ("hudson.tasks.BatchFile".equals(iBuilder.getClass().getName())) {
-            			BatchFile batchBuilder = (BatchFile) iBuilder;
-            			listener.getLogger().println("The Windows batch command was:" + batchBuilder.getCommand());
-            		}	
-
-            		if ("hudson.tasks.Ant".equals(iBuilder.getClass().getName())) {
-            			Ant antBuilder = (Ant) iBuilder;
-            			listener.getLogger().println("the Ant command was : ant " + antBuilder.getTargets());
-            		}
-            		if ("hudson.tasks.Shell".equals(iBuilder.getClass().getName())) {
-            			Shell shellBuilder = (Shell) iBuilder;
-            			listener.getLogger().println("the shell command was : " + shellBuilder.getCommand());
-            		}	
-            		
-            		Collection<? extends Action> stepActions = iBuilder.getProjectActions(buildProj);
-            		listener.getLogger().println("builder "+ i + " : got "+ stepActions.size() +" Actions" );
-            		Iterator<? extends Action> iteratorActions = stepActions.iterator();
-            		if (0==stepActions.size()) {
-            			listener.getLogger().println("This builder "+ i + " contains no action");
-            		} else {
-            			listener.getLogger().println("This builder "+ i + " contains "+stepActions.size()+ " actions");
-	            		listener.getLogger().println("builder "+ i + " : got iterator ");
-	            		int j=0;
-	            		while (iteratorActions.hasNext()) {
-	            			j++;
-	            			listener.getLogger().println("builder "+ i + " Action " + j);
-	            			Action iAction = iteratorActions.next();
-	            			listener.getLogger().println("builder "+ i + " Action " + j + " content:");
-	            			listener.getLogger().println("builder "+ i + " action " + j + " : " + iAction.toString());
-	            		}
-            		}
-            	}
-
-
-            		
-            } else {
-            	listener.getLogger().println("This is not a FreeStyleProject");
-            }
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
         listener.getLogger().println("");
-        listener.getLogger().println("shorter way to get to the project (without using xml file)");
 
         FreeStyleProject realProj = (FreeStyleProject) build.getProject();
     	List projBuilders = realProj.getBuilders();
@@ -233,124 +230,111 @@ public class ScanPluginBuilder extends Builder {
     		i++;
     		Builder iBuilder = iteratorBuilder.next();
 
-    		listener.getLogger().println("builder "+ i + " : ");  // iBuilder.toString() crashes
     		listener.getLogger().println("builder "+ i + " : " + iBuilder.getClass().toString());
     		if ("org.hudsonci.maven.plugin.builder.MavenBuilder".equals(iBuilder.getClass().getName())) {
 
     			MavenBuilder mvnBuilder = (MavenBuilder) iBuilder;
-    			listener.getLogger().println("mvnBuilder.toString()" + mvnBuilder.toString());
     			MavenBuilderDescriptor mvnBuilderDesc=mvnBuilder.getDescriptor();
-    			listener.getLogger().println("mvnBuilderDesc.toString()" + mvnBuilderDesc.toString());
-    			listener.getLogger().println("mvnBuilderDesc.getDisplayName()" + mvnBuilderDesc.getDisplayName());
-    			listener.getLogger().println("mvnBuilderDesc.getConfigFile().toString()" + mvnBuilderDesc.getConfigFile().toString());
-    			
-    			//RenderableEnum[] mvnMake = mvnBuilderDesc.getMakeModeValues();
     			listener.getLogger().println("The Maven command was : mvn " + mvnBuilder.getConfig().getGoals());
-    			
-    			
-    		
-    		}
-    		if ("hudson.tasks.BatchFile".equals(iBuilder.getClass().getName())) {
+    			proj_builder="maven";
+    			build_command=mvnBuilder.getConfig().getGoals();
+    		} else if ("hudson.tasks.BatchFile".equals(iBuilder.getClass().getName())) {
     			BatchFile batchBuilder = (BatchFile) iBuilder;
     			listener.getLogger().println("The Windows batch command was:" + batchBuilder.getCommand());
-    		}	
-
-    		if ("hudson.tasks.Ant".equals(iBuilder.getClass().getName())) {
+    			proj_builder="batch";
+    			build_command=batchBuilder.getCommand();
+    		} else if ("hudson.tasks.Ant".equals(iBuilder.getClass().getName())) {
     			Ant antBuilder = (Ant) iBuilder;
     			listener.getLogger().println("the Ant command was : ant " + antBuilder.getTargets());
-    		}
-    		if ("hudson.tasks.Shell".equals(iBuilder.getClass().getName())) {
+    			proj_builder="ant";
+    			build_command=antBuilder.getTargets();
+    		} else if ("hudson.tasks.Shell".equals(iBuilder.getClass().getName())) {
     			Shell shellBuilder = (Shell) iBuilder;
     			listener.getLogger().println("the shell command was : " + shellBuilder.getCommand());
-    		}	
-    		
-    		Collection<? extends Action> stepActions = iBuilder.getProjectActions(buildProj);
-    		listener.getLogger().println("builder "+ i + " : got "+ stepActions.size() +" Actions" );
-    		Iterator<? extends Action> iteratorActions = stepActions.iterator();
-    		if (0==stepActions.size()) {
-    			listener.getLogger().println("This builder "+ i + " contains no action");
+    			proj_builder="shell";
+    			build_command=shellBuilder.getCommand();
     		} else {
-    			listener.getLogger().println("This builder "+ i + " contains "+stepActions.size()+ " actions");
-        		listener.getLogger().println("builder "+ i + " : got iterator ");
-        		int j=0;
-        		while (iteratorActions.hasNext()) {
-        			j++;
-        			listener.getLogger().println("builder "+ i + " Action " + j);
-        			Action iAction = iteratorActions.next();
-        			listener.getLogger().println("builder "+ i + " Action " + j + " content:");
-        			listener.getLogger().println("builder "+ i + " action " + j + " : " + iAction.toString());
-        		}
+    			listener.getLogger().println("Unfortunately we do not support the builder " + iBuilder.getClass().getName() +". Please let us know you would like us to!");
+    			proj_builder=iBuilder.getClass().getName();
+    			build_command="null";
     		}
     	}
 
-
-
-        // further tries to extract the build command
         listener.getLogger().println("");
-        listener.getLogger().println("Further tries to extract the build command");
-        //build.
+        listener.getLogger().println("Extracting the SCM");
+
         SCM projSCM = buildProj.getScm();
-        listener.getLogger().println("scm.toString="+projSCM.toString());
+
         listener.getLogger().println("scm.type="+projSCM.getType());
-		 SCMDescriptor<?> scmDesc = projSCM.getDescriptor();
-		 listener.getLogger().println("the SCM descriptor is: " + scmDesc.getClass().getName());
-		 listener.getLogger().println("the SCM descriptorUrl is: " + scmDesc.getDescriptorUrl());
-		// listener.getLogger().println("the SCM descriptorUrl is: " + scmDesc.getDescriptorUrl());
+		SCMDescriptor<?> scmDesc = projSCM.getDescriptor();
+		listener.getLogger().println("the SCM descriptor is: " + scmDesc.getClass().getName());
  		if ("hudson.plugins.git.GitSCM".equals(projSCM.getType())) {
-	            GitSCM theSCM;
-                   // try {
-                    	theSCM = (GitSCM) projSCM;
-                        listener.getLogger().println("the git command was : getGitConfigName " + theSCM.getGitConfigName());
-                    	listener.getLogger().println("the git command was : getGitConfigEmail " + theSCM.getGitConfigEmail());
-                    	listener.getLogger().println("the git command was : getGitTool " + theSCM.getGitTool());
-                    	//<? extends RemoteConfig>
-                        Iterator  repositoryIterator = theSCM.getRepositories().iterator();
-                        //org.eclipse.jgit.transport.RemoteConfig
-                        
-                       // if (0==repositoryIterator.size()) {
-    					//	listener.getLogger().println("This Git Scm  contains no Repositories");
-    					//} else {
-    					//	listener.getLogger().println("This Git Scm contains "+repositoryIterator.size()+ " Repositories");
-        					int j=0;
-        					while (repositoryIterator.hasNext()) {
-        					j++;
-        					listener.getLogger().println("Git Scm  repository " + j);
-        					RemoteConfig jConfig = (RemoteConfig) repositoryIterator.next();
-        					listener.getLogger().println("Git Scm  repository  " + j + " content:");
-        					listener.getLogger().println("Git Scm  repository  " + j + " : " + jConfig.getName());
-        					listener.getLogger().println("Git Scm  repository  " + j + " : " + jConfig.getName());
-        						Iterator  URIIterator = jConfig.getURIs().iterator();
-	        					int k=0;
-	        					while (URIIterator.hasNext()) {
-	        					k++;
-	        					listener.getLogger().println("Git Scm " + j + " URI " +k);
-	        					URIish kURI = (URIish) URIIterator.next();
-	        					listener.getLogger().println("Git Scm  repository  " + j + " URI " +k+ " content:");
-	        					listener.getLogger().println("Git Scm  repository  " + j + " URI " +k+ " toPrivateString : " + kURI.toPrivateString());
-	        					listener.getLogger().println("Git Scm  repository  " + j + " URI " +k+ " getHost : " + kURI.getHost());
-	        				}
-        				}
-    				//}
-                      
-                   // } catch (FormException ex) {
-                    //    Logger.getLogger(ScanPluginBuilder.class.getName()).log(Level.SEVERE, null, ex);
-                   // }
-                    //theSCM = (GitSCM) (projSCM.getDescriptor().newInstance(null, null));
+			proj_scm="git";
+            GitSCM theSCM;
+        
+        	theSCM = (GitSCM) projSCM;
+            listener.getLogger().println("the git command was : getGitConfigName " + theSCM.getGitConfigName());
+        	listener.getLogger().println("the git command was : getGitConfigEmail " + theSCM.getGitConfigEmail());
+        	listener.getLogger().println("the git command was : getGitTool " + theSCM.getGitTool());
+        	//<? extends RemoteConfig>
+            Iterator  repositoryIterator = theSCM.getRepositories().iterator();
+         
+			int j=0;
+			while (repositoryIterator.hasNext()) {
+				j++;
+				listener.getLogger().println("Git Scm  repository " + j);
+				RemoteConfig jConfig = (RemoteConfig) repositoryIterator.next();
+				listener.getLogger().println("Git Scm  repository  " + j + " content:");
+				listener.getLogger().println("Git Scm  repository  " + j + " : " + jConfig.getName());
+				Iterator  URIIterator = jConfig.getURIs().iterator();
+				int k=0;
+				while (URIIterator.hasNext()) {
+					k++;
+					listener.getLogger().println("Git Scm " + j + " URI " +k);
+					URIish kURI = (URIish) URIIterator.next();
+					listener.getLogger().println("Git Scm  repository  " + j + " URI " +k+ " content:");
+					listener.getLogger().println("Git Scm  repository  " + j + " URI " +k+ " toPrivateString : " + kURI.toPrivateString());
+					scm_command=kURI.toPrivateString();
+					listener.getLogger().println("Git Scm  repository  " + j + " URI " +k+ " getHost : " + kURI.getHost());
+				}
+			}
+        } else if ("hudson.scm.CVSSCM".equals(projSCM.getType())) {
+        	proj_scm="cvs";
+        	listener.getLogger().println("this SCM is CVS");
+        	CVSSCM theSCM;
+            theSCM = (CVSSCM) projSCM;
+            scm_command="";
+    		for (ModuleLocation moduleLocation : theSCM.getModuleLocations()) {
+    		    listener.getLogger().println("the CVS root is "+moduleLocation.getCvsroot());
+    		    //listener.getLogger().println("the CVS branch to build is "+moduleLocation.getBranch());
+    		    listener.getLogger().println("the CVS module is "+moduleLocation.getModule());
+    		    //listener.getLogger().println("the CVS location is "+Arrays.toString(moduleLocation.getNormalizedModules()));
+    		    scm_command="-Q -z3 -d \""+moduleLocation.getCvsroot()+"\" co -P -d workspace "+moduleLocation.getModule();
+    		}          
+            
+            listener.getLogger().println("the CVS command should be : cvs " +scm_command);
+        } else if ("hudson.scm.SubversionSCM".equals(projSCM.getType())) {
+            proj_scm="svn";
+        	listener.getLogger().println("this SCM is SVN");
+        	SubversionSCM theSCM;
+            theSCM = (SubversionSCM) projSCM;
+            scm_command="";
+            for (SubversionSCM.ModuleLocation moduleLocation : theSCM.getLocations()) {
+    		    listener.getLogger().println("the svn URL is "+moduleLocation.getURL());
+    		    listener.getLogger().println("the svn full remote is "+moduleLocation.getOriginRemote());
+    		    listener.getLogger().println("the svn depth option is "+moduleLocation.getDepthOption());
+    		    scm_command=moduleLocation.getOriginRemote();
+    		}     
         } else {
-        	listener.getLogger().println("this SCM is not GIT");
+        	listener.getLogger().println("this SCM is not GIT nor CVS");
         }
 			 
- 		
-       //launcher.
-       //listener.
+ 		// Submitting the build to Coverity
+		submitToCoverity(listener);
 
         // Creating link to the report
-       // ScanPluginReport report = new ScanPluginReport(buildProj.getFullName(),buildProj.getNearestOldBuild(buildProj.getNextBuildNumber()).getNumber());
-        ScanPluginReport report = new ScanPluginReport(buildProj.getFullName(),build.getNumber());
-
+        ScanPluginReport report = new ScanPluginReport(buildProj.getFullName(),getBuildNumber());
         build.addAction(report);
-        //build.getActions().add(report);  // identical
-
 
         listener.finished(Result.SUCCESS);
         return true;

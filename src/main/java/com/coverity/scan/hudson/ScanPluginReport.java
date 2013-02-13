@@ -5,10 +5,10 @@ import hudson.model.Action;
 public class ScanPluginReport implements Action {
 
 	private boolean dataUpdated=false;
-	private int buildNumber;
+	private String buildNumber;
 	private String projectName;
 	
-	public ScanPluginReport(String theProjectName, int theBuildNumber) {
+	public ScanPluginReport(String theProjectName, String theBuildNumber) {
 		buildNumber=theBuildNumber;
 		projectName=theProjectName;
 		dataUpdated=false;		
@@ -66,7 +66,7 @@ public class ScanPluginReport implements Action {
     /**
      * Returns build number for this report
      */
-	public int getBuildNumber() {
+	public String getBuildNumber() {
 	
 		// TODO Auto-generated method stub
 		return buildNumber;

@@ -8,7 +8,7 @@
   	<f:entry title=""> 
 What is Coverity Scan? <a href="http://scan.coverity.com/faq.html" target="faq">http://scan.coverity.com/faq.html</a>
 </f:entry><f:entry title="">
-Not Registered? <a href="http://scan.coverity.com/start/" target="register">http://scan.coverity.com/start</a> <a href="#" onclick="openRegister()">Register</a>
+Not Registered? <a href="#" onclick="openRegister()">Register Here</a>
 </f:entry>
   </f:advanced>
   <f:entry title="User Name" field="name"><f:textbox /> </f:entry>

@@ -77,8 +77,10 @@ public class ScanPluginBuilder extends Builder {
 	private String build_number;
 	private String proj_scm;
 	private String scm_command;
+	private String scm_commands[];
 	private String proj_builder;
 	private String build_command;
+	private String build_comments;
 
     // Fields in config.jelly must match the parameter names in the "DataBoundConstructor"
     @DataBoundConstructor
@@ -87,6 +89,11 @@ public class ScanPluginBuilder extends Builder {
         this.password = password;
         this.email = email;
         this.project = project;
+        this.build_comments="";
+        this.proj_builder="null";
+        this.build_command="null";
+        this.scm_command="null";
+        this.proj_scm="null";
     }
 
     /**
@@ -115,9 +122,17 @@ public class ScanPluginBuilder extends Builder {
 	public String getProjSCM() {
         return proj_scm;
     }
-        
+     
+	public String getBuildComments() {
+        return build_comments;
+    }
+  
 	public String getSCMCommand() {
         return scm_command;
+    }
+    
+	public String[] getSCMCommands() {
+        return scm_commands;
     }
         
     public String getProjBuilder() {
@@ -150,7 +165,7 @@ public class ScanPluginBuilder extends Builder {
    		urlParameters += "&proj_builder="+encodeUTF8(getProjBuilder());
    		urlParameters += "&build_command="+encodeUTF8(getBuildCommand());
    		urlParameters += "&scm_command="+encodeUTF8(getSCMCommand());
-   		
+   		urlParameters += "&build_comments="+encodeUTF8(getBuildComments());
     	try {
       	    //Create connection
       		submitURL = new URL(ScanPluginConfiguration.SUBMIT_URL);
@@ -162,8 +177,8 @@ public class ScanPluginBuilder extends Builder {
       		connection.setUseCaches (false);
       		connection.setDoInput(true);
       		connection.setDoOutput(true);
-
-			listener.getLogger().println("Options sent to Coverity' are: "+urlParameters);
+            listener.getLogger().println("Connecting to Coverity at: " + ScanPluginConfiguration.SUBMIT_URL);
+			listener.getLogger().println("Options sent to Coverity are: "+urlParameters);
 			
       		//Send request
       		DataOutputStream wr = new DataOutputStream (connection.getOutputStream ());
@@ -181,7 +196,8 @@ public class ScanPluginBuilder extends Builder {
         	response.append('\r');
       		}
       		rd.close();
-      		listener.getLogger().println("Coverity's response was"+response.toString());
+      		listener.getLogger().println("Coverity's response was");
+      		listener.getLogger().println(response.toString());
     	} catch (Exception e) {
 			listener.getLogger().println("Failed to submit build to Coverity");
       		e.printStackTrace();
@@ -195,6 +211,7 @@ public class ScanPluginBuilder extends Builder {
     @Override
     public boolean perform(AbstractBuild build, Launcher launcher, BuildListener listener) {
 
+        build_comments="";
 		List<Cause> buildStepCause = new ArrayList();
 		 buildStepCause.add(new Cause() {
 		   public String getShortDescription() {
@@ -212,17 +229,15 @@ public class ScanPluginBuilder extends Builder {
         // now showing the build object
         AbstractProject<?,?> buildProj = build.getProject();
         listener.getLogger().println("This project is called: "+buildProj.getName());
-        listener.getLogger().println("build object says the build getNumber is: "+ build.getNumber());
+        listener.getLogger().println("The build number is: "+ build.getNumber());
         build_number=Integer.toString(build.getNumber());
 
         XmlFile projXml = buildProj.getConfigFile();
-        listener.getLogger().println("Project config file location:");
-        listener.getLogger().println(projXml.toString());
+        listener.getLogger().println("Project config file location:"+projXml.toString());
         listener.getLogger().println("");
 
         FreeStyleProject realProj = (FreeStyleProject) build.getProject();
     	List projBuilders = realProj.getBuilders();
-
     	Iterator<Builder> iteratorBuilder = projBuilders.iterator();
     	
     	int i=0;
@@ -232,11 +247,10 @@ public class ScanPluginBuilder extends Builder {
 
     		listener.getLogger().println("builder "+ i + " : " + iBuilder.getClass().toString());
     		if ("org.hudsonci.maven.plugin.builder.MavenBuilder".equals(iBuilder.getClass().getName())) {
-
     			MavenBuilder mvnBuilder = (MavenBuilder) iBuilder;
     			MavenBuilderDescriptor mvnBuilderDesc=mvnBuilder.getDescriptor();
     			listener.getLogger().println("The Maven command was : mvn " + mvnBuilder.getConfig().getGoals());
-    			proj_builder="maven";
+    			proj_builder="mvn";
     			build_command=mvnBuilder.getConfig().getGoals();
     		} else if ("hudson.tasks.BatchFile".equals(iBuilder.getClass().getName())) {
     			BatchFile batchBuilder = (BatchFile) iBuilder;
@@ -255,8 +269,7 @@ public class ScanPluginBuilder extends Builder {
     			build_command=shellBuilder.getCommand();
     		} else {
     			listener.getLogger().println("Unfortunately we do not support the builder " + iBuilder.getClass().getName() +". Please let us know you would like us to!");
-    			proj_builder=iBuilder.getClass().getName();
-    			build_command="null";
+    			build_comments+=" unsupported builder: " + iBuilder.getClass().getName();
     		}
     	}
 
@@ -267,35 +280,35 @@ public class ScanPluginBuilder extends Builder {
 
         listener.getLogger().println("scm.type="+projSCM.getType());
 		SCMDescriptor<?> scmDesc = projSCM.getDescriptor();
-		listener.getLogger().println("the SCM descriptor is: " + scmDesc.getClass().getName());
+		//listener.getLogger().println("the SCM descriptor is: " + scmDesc.getClass().getName());
  		if ("hudson.plugins.git.GitSCM".equals(projSCM.getType())) {
 			proj_scm="git";
             GitSCM theSCM;
         
         	theSCM = (GitSCM) projSCM;
-            listener.getLogger().println("the git command was : getGitConfigName " + theSCM.getGitConfigName());
-        	listener.getLogger().println("the git command was : getGitConfigEmail " + theSCM.getGitConfigEmail());
-        	listener.getLogger().println("the git command was : getGitTool " + theSCM.getGitTool());
+           // listener.getLogger().println("the git command was : getGitConfigName " + theSCM.getGitConfigName());
+        	//listener.getLogger().println("the git command was : getGitConfigEmail " + theSCM.getGitConfigEmail());
+        	//listener.getLogger().println("the git command was : getGitTool " + theSCM.getGitTool());
         	//<? extends RemoteConfig>
             Iterator  repositoryIterator = theSCM.getRepositories().iterator();
          
 			int j=0;
 			while (repositoryIterator.hasNext()) {
 				j++;
-				listener.getLogger().println("Git Scm  repository " + j);
+				//listener.getLogger().println("Git Scm  repository " + j);
 				RemoteConfig jConfig = (RemoteConfig) repositoryIterator.next();
-				listener.getLogger().println("Git Scm  repository  " + j + " content:");
-				listener.getLogger().println("Git Scm  repository  " + j + " : " + jConfig.getName());
+				//listener.getLogger().println("Git Scm  repository  " + j + " content:");
+				//listener.getLogger().println("Git Scm  repository  " + j + " : " + jConfig.getName());
 				Iterator  URIIterator = jConfig.getURIs().iterator();
 				int k=0;
 				while (URIIterator.hasNext()) {
 					k++;
-					listener.getLogger().println("Git Scm " + j + " URI " +k);
+					//listener.getLogger().println("Git Scm " + j + " URI " +k);
 					URIish kURI = (URIish) URIIterator.next();
-					listener.getLogger().println("Git Scm  repository  " + j + " URI " +k+ " content:");
+					//listener.getLogger().println("Git Scm  repository  " + j + " URI " +k+ " content:");
 					listener.getLogger().println("Git Scm  repository  " + j + " URI " +k+ " toPrivateString : " + kURI.toPrivateString());
 					scm_command=kURI.toPrivateString();
-					listener.getLogger().println("Git Scm  repository  " + j + " URI " +k+ " getHost : " + kURI.getHost());
+					//listener.getLogger().println("Git Scm  repository  " + j + " URI " +k+ " getHost : " + kURI.getHost());
 				}
 			}
         } else if ("hudson.scm.CVSSCM".equals(projSCM.getType())) {
@@ -303,16 +316,26 @@ public class ScanPluginBuilder extends Builder {
         	listener.getLogger().println("this SCM is CVS");
         	CVSSCM theSCM;
             theSCM = (CVSSCM) projSCM;
-            scm_command="";
+            i=0;
+
     		for (ModuleLocation moduleLocation : theSCM.getModuleLocations()) {
+    			scm_commands[i]=" -Q ";    //Cause CVS to be really quiet.
+            	scm_commands[i]+= " -z3 "; //Causes CVS to use network compression (this is not a local checkout)
+           		if (theSCM.isPreventLineEndingConversion()) {
+            		scm_commands[i]+= " --lf ";  //Causes CVS to not convert unix to windows line ending
+            	}
+            	scm_commands[i]+= " -d " + moduleLocation.getCvsroot() +" co -P ";
+            	if (moduleLocation.getBranch() != null) {
+      				scm_commands[i]+= " -r " + moduleLocation.getBranch();
+    			}
+    			scm_commands[i]+= " -d WORKSPACE"; 
+    			scm_commands[i]+= moduleLocation.getModule(); 
     		    listener.getLogger().println("the CVS root is "+moduleLocation.getCvsroot());
     		    //listener.getLogger().println("the CVS branch to build is "+moduleLocation.getBranch());
     		    listener.getLogger().println("the CVS module is "+moduleLocation.getModule());
     		    //listener.getLogger().println("the CVS location is "+Arrays.toString(moduleLocation.getNormalizedModules()));
-    		    scm_command="-Q -z3 -d \""+moduleLocation.getCvsroot()+"\" co -P -d workspace "+moduleLocation.getModule();
-    		}          
-            
-            listener.getLogger().println("the CVS command should be : cvs " +scm_command);
+    		    listener.getLogger().println("the CVS command["+i+"] should be : cvs " +scm_commands[i]);
+    		}
         } else if ("hudson.scm.SubversionSCM".equals(projSCM.getType())) {
             proj_scm="svn";
         	listener.getLogger().println("this SCM is SVN");
@@ -327,6 +350,7 @@ public class ScanPluginBuilder extends Builder {
     		}     
         } else {
         	listener.getLogger().println("this SCM is not GIT nor CVS");
+        	build_comments+=" unsupported SCM: " + projSCM.getType();
         }
 			 
  		// Submitting the build to Coverity

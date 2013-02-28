@@ -17,7 +17,10 @@
     <name>Coverity Scan plugin</name>
     <description>This plug-in allows to enable Coverity scan on any Hudson job.</description>
     <url>https://github.com/kaizer113/scan-plugin</url>
-
+    <properties>
+        <targetJdk>1.6</targetJdk>
+    </properties>
+ 
     <licenses>
         <license>
             <name>MIT license</name>

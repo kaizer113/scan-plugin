@@ -1,5 +1,14 @@
 package com.coverity.scan.hudson;
 
+import java.io.BufferedReader;
+import java.io.DataOutputStream;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
 import hudson.model.Action;
 
 public class ScanPluginReport implements Action {
@@ -7,18 +16,21 @@ public class ScanPluginReport implements Action {
 	private boolean dataUpdated=false;
 	private String buildNumber;
 	private String projectName;
+	private String username;
+	private String password;
 	
-	public ScanPluginReport(String theProjectName, String theBuildNumber) {
+	public ScanPluginReport(String theProjectName, String theBuildNumber, String theUsername, String thePassword) {
 		buildNumber=theBuildNumber;
 		projectName=theProjectName;
-		dataUpdated=false;		
+		username=theUsername;
+		password=thePassword;
+		dataUpdated=true;		
 	}
 	
     /**
      * {@inheritDoc}
      */
 	public String getIconFileName() {
-		// TODO Auto-generated method stub
 		 return ScanPluginConfiguration.ICON_FILE_NAME;
 	}
 
@@ -26,7 +38,6 @@ public class ScanPluginReport implements Action {
      * {@inheritDoc}
      */
 	public String getDisplayName() {
-		// TODO Auto-generated method stub
 		return ScanPluginConfiguration.DISPLAY_NAME;
 	}
 
@@ -34,7 +45,6 @@ public class ScanPluginReport implements Action {
      * {@inheritDoc}
      */
 	public String getUrlName() {
-		// TODO Auto-generated method stub
 		return ScanPluginConfiguration.URL;
 	}
 
@@ -42,7 +52,6 @@ public class ScanPluginReport implements Action {
      * Returns no data yet message
      */
 	public String getNoDataYet() {
-		// TODO Auto-generated method stub
 		return ScanPluginConfiguration.NO_DATA_YET;
 	}
 	
@@ -50,7 +59,6 @@ public class ScanPluginReport implements Action {
      * Returns yes data message
      */
 	public String getYesData() {
-		// TODO Auto-generated method stub
 		return ScanPluginConfiguration.YES_DATA;
 	}
 	
@@ -67,8 +75,6 @@ public class ScanPluginReport implements Action {
      * Returns build number for this report
      */
 	public String getBuildNumber() {
-	
-		// TODO Auto-generated method stub
 		return buildNumber;
 	}    
     
@@ -76,9 +82,69 @@ public class ScanPluginReport implements Action {
      * Returns the project name for this report
      */
 	public String getProjectName() {
-	
-		// TODO Auto-generated method stub
 		return projectName;
 	}
+	
+    /**
+     * Returns the project name for this report
+     */
+	public String getUsername() {
+		return projectName;
+	}
+	
+    /**
+     * Returns the project name for this report
+     */
+	public String getPassword() {
+		return projectName;
+	}
+	
+    /**
+     * Returns the project name for this report
+     */
+	public String getReport() {
+	       URL submitURL;
+	   		HttpURLConnection connection = null;  
+	   		
+	   		String urlParameters = "username="+ScanPluginConfiguration.encodeUTF8(getUsername());
+	   		urlParameters += "&password="+ScanPluginConfiguration.encodeUTF8(getPassword());
+	   		urlParameters += "&project="+ScanPluginConfiguration.encodeUTF8(getProjectName());
+	   		urlParameters += "&email="+ScanPluginConfiguration.encodeUTF8(getBuildNumber());
+	    	try {
+	      	    //Create connection
+	      		submitURL = new URL(ScanPluginConfiguration.REPORT_URL);
+	            connection = (HttpURLConnection)submitURL.openConnection();
+	            connection.setRequestMethod("POST");
+	            connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
+				connection.setRequestProperty("Content-Length", "" + Integer.toString(urlParameters.getBytes().length));
+	            connection.setRequestProperty("Content-Language", "en-US");  
+	      		connection.setUseCaches (false);
+	      		connection.setDoInput(true);
+	      		connection.setDoOutput(true);
+				
+	      		//Send request
+	      		DataOutputStream wr = new DataOutputStream (connection.getOutputStream ());
+	     		wr.writeBytes (urlParameters);
+	      		wr.flush ();
+	      		wr.close ();
+
+	      		//Get Response	
+	      		InputStream is = connection.getInputStream();
+	      		BufferedReader rd = new BufferedReader(new InputStreamReader(is));
+	      		String line;
+	      		StringBuffer response = new StringBuffer(); 
+	      		while((line = rd.readLine()) != null) {
+	        	response.append(line);
+	        	response.append('\r');
+	      		}
+	      		rd.close();
+	      		return response.toString();
+	    	} catch (Exception e) {
+	    		Logger.getLogger(ScanPluginReport.class.getName()).log(Level.SEVERE, null, e);
+	      		return "Failed to obtain the report from Coverity";
+	    	} finally {
+	      		if(connection != null) connection.disconnect(); 
+	    	}
+	}	
 	
 }

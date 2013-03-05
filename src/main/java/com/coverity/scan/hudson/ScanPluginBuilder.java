@@ -70,14 +70,14 @@ import java.util.logging.Logger;
  */
 public class ScanPluginBuilder extends Builder {
 
-    private final String name;
+    private String name;
 	private String password;
 	private String email;
 	private String project;
 	private String build_number;
 	private String proj_scm;
 	private String scm_command;
-	private String scm_commands[];
+	private String[] scm_commands;
 	private String proj_builder;
 	private String build_command;
 	private String build_comments;
@@ -89,11 +89,11 @@ public class ScanPluginBuilder extends Builder {
         this.password = password;
         this.email = email;
         this.project = project;
-        this.build_comments="";
         this.proj_builder="null";
         this.build_command="null";
         this.scm_command="null";
         this.proj_scm="null";
+        this.scm_commands = new String[10];
     }
 
     /**
@@ -102,8 +102,9 @@ public class ScanPluginBuilder extends Builder {
     public String getName() {
         return name;
     }
-
+    
     public String getPassword() {
+    // this has to stay public if not the user will need to re-enter the password everytime the config page is opened
         return password;
     }
 
@@ -142,7 +143,7 @@ public class ScanPluginBuilder extends Builder {
     public String getBuildCommand() {
         return build_command;
     }
-    
+/*
     private String encodeUTF8(String str){
     	try {
     		return URLEncoder.encode(str, "UTF-8");
@@ -150,22 +151,22 @@ public class ScanPluginBuilder extends Builder {
     		Logger.getLogger(ScanPluginBuilder.class.getName()).log(Level.SEVERE, null, ex);
     		return "Failed to encode";
     	}    		
-    }
+    }*/
     
     private boolean submitToCoverity(BuildListener listener){
         URL submitURL;
    		HttpURLConnection connection = null;  
    		
-   		String urlParameters = "username="+encodeUTF8(getName());
-   		urlParameters += "&password="+encodeUTF8(getPassword());
-   		urlParameters += "&project="+encodeUTF8(getProject());
-   		urlParameters += "&email="+encodeUTF8(getEmail());
-   		urlParameters += "&build_number="+encodeUTF8(getBuildNumber());
-   		urlParameters += "&proj_scm="+encodeUTF8(getProjSCM());
-   		urlParameters += "&proj_builder="+encodeUTF8(getProjBuilder());
-   		urlParameters += "&build_command="+encodeUTF8(getBuildCommand());
-   		urlParameters += "&scm_command="+encodeUTF8(getSCMCommand());
-   		urlParameters += "&build_comments="+encodeUTF8(getBuildComments());
+   		String urlParameters = "username="+ScanPluginConfiguration.encodeUTF8(getName());
+   		urlParameters += "&password="+ScanPluginConfiguration.encodeUTF8(getPassword());
+   		urlParameters += "&project="+ScanPluginConfiguration.encodeUTF8(getProject());
+   		urlParameters += "&email="+ScanPluginConfiguration.encodeUTF8(getEmail());
+   		urlParameters += "&build_number="+ScanPluginConfiguration.encodeUTF8(getBuildNumber());
+   		urlParameters += "&proj_scm="+ScanPluginConfiguration.encodeUTF8(getProjSCM());
+   		urlParameters += "&proj_builder="+ScanPluginConfiguration.encodeUTF8(getProjBuilder());
+   		urlParameters += "&build_command="+ScanPluginConfiguration.encodeUTF8(getBuildCommand());
+   		urlParameters += "&scm_command="+ScanPluginConfiguration.encodeUTF8(getSCMCommand());
+   		urlParameters += "&build_comments="+ScanPluginConfiguration.encodeUTF8(getBuildComments());
     	try {
       	    //Create connection
       		submitURL = new URL(ScanPluginConfiguration.SUBMIT_URL);
@@ -210,8 +211,6 @@ public class ScanPluginBuilder extends Builder {
 
     @Override
     public boolean perform(AbstractBuild build, Launcher launcher, BuildListener listener) {
-
-        build_comments="";
 		List<Cause> buildStepCause = new ArrayList();
 		 buildStepCause.add(new Cause() {
 		   public String getShortDescription() {
@@ -231,6 +230,7 @@ public class ScanPluginBuilder extends Builder {
         listener.getLogger().println("This project is called: "+buildProj.getName());
         listener.getLogger().println("The build number is: "+ build.getNumber());
         build_number=Integer.toString(build.getNumber());
+        build_comments= project+ " build #"+ build_number;
 
         XmlFile projXml = buildProj.getConfigFile();
         listener.getLogger().println("Project config file location:"+projXml.toString());
@@ -252,21 +252,37 @@ public class ScanPluginBuilder extends Builder {
     			listener.getLogger().println("The Maven command was : mvn " + mvnBuilder.getConfig().getGoals());
     			proj_builder="mvn";
     			build_command=mvnBuilder.getConfig().getGoals();
+    			if (build_command.isEmpty()) {
+    				build_command= "NO_TARGETS";
+    			}
     		} else if ("hudson.tasks.BatchFile".equals(iBuilder.getClass().getName())) {
     			BatchFile batchBuilder = (BatchFile) iBuilder;
     			listener.getLogger().println("The Windows batch command was:" + batchBuilder.getCommand());
     			proj_builder="batch";
     			build_command=batchBuilder.getCommand();
+    			if (build_command.isEmpty()) {
+    				listener.getLogger().println("Fatal error, the batch command is empty");
+    				return false;
+    			}
     		} else if ("hudson.tasks.Ant".equals(iBuilder.getClass().getName())) {
     			Ant antBuilder = (Ant) iBuilder;
-    			listener.getLogger().println("the Ant command was : ant " + antBuilder.getTargets());
+    			listener.getLogger().println("The Ant command was : ant " + antBuilder.getTargets());
     			proj_builder="ant";
     			build_command=antBuilder.getTargets();
+    			if (build_command.isEmpty()) {
+    				build_command= "NO_TARGETS";
+    			}
     		} else if ("hudson.tasks.Shell".equals(iBuilder.getClass().getName())) {
     			Shell shellBuilder = (Shell) iBuilder;
-    			listener.getLogger().println("the shell command was : " + shellBuilder.getCommand());
+    			listener.getLogger().println("The shell command was : " + shellBuilder.getCommand());
     			proj_builder="shell";
     			build_command=shellBuilder.getCommand();
+    			if (build_command.isEmpty()) {
+    				listener.getLogger().println("Fatal error, the shell command is empty");
+    				return false;
+    			}    			
+    		} else if ("com.coverity.scan.hudson.ScanPluginBuilder".equals(iBuilder.getClass().getName())) {
+    			// This is us, nothing to do
     		} else {
     			listener.getLogger().println("Unfortunately we do not support the builder " + iBuilder.getClass().getName() +". Please let us know you would like us to!");
     			build_comments+=" unsupported builder: " + iBuilder.getClass().getName();
@@ -317,24 +333,32 @@ public class ScanPluginBuilder extends Builder {
         	CVSSCM theSCM;
             theSCM = (CVSSCM) projSCM;
             i=0;
-
     		for (ModuleLocation moduleLocation : theSCM.getModuleLocations()) {
-    			scm_commands[i]=" -Q ";    //Cause CVS to be really quiet.
-            	scm_commands[i]+= " -z3 "; //Causes CVS to use network compression (this is not a local checkout)
+    		    listener.getLogger().println("loop");
+    		    scm_command=" -Q ";
+    			//scm_commands[i]=" -Q ";    //Cause CVS to be really quiet.
+            	//scm_commands[i]+= " -z3 "; //Causes CVS to use network compression (this is not a local checkout)
+            	scm_command+= " -z3 ";
            		if (theSCM.isPreventLineEndingConversion()) {
-            		scm_commands[i]+= " --lf ";  //Causes CVS to not convert unix to windows line ending
+            		//scm_commands[i]+= " --lf ";  //Causes CVS to not convert unix to windows line ending
+            		scm_command+= " --lf ";
             	}
-            	scm_commands[i]+= " -d " + moduleLocation.getCvsroot() +" co -P ";
+            	//scm_commands[i]+= " -d " + moduleLocation.getCvsroot() +" co -P ";
+            	scm_command+= " -d " + moduleLocation.getCvsroot() +" co -P ";
             	if (moduleLocation.getBranch() != null) {
-      				scm_commands[i]+= " -r " + moduleLocation.getBranch();
+      				//scm_commands[i]+= " -r " + moduleLocation.getBranch();
+      				scm_command+=" -r " + moduleLocation.getBranch();
     			}
-    			scm_commands[i]+= " -d WORKSPACE"; 
-    			scm_commands[i]+= moduleLocation.getModule(); 
+    			scm_command+=" -d " + project +" "; 
+    			//scm_commands[i]+= " -d WORKSPACE ";
+    			scm_command+=moduleLocation.getModule();  
+    			//scm_commands[i]+= moduleLocation.getModule(); 
     		    listener.getLogger().println("the CVS root is "+moduleLocation.getCvsroot());
     		    //listener.getLogger().println("the CVS branch to build is "+moduleLocation.getBranch());
     		    listener.getLogger().println("the CVS module is "+moduleLocation.getModule());
     		    //listener.getLogger().println("the CVS location is "+Arrays.toString(moduleLocation.getNormalizedModules()));
-    		    listener.getLogger().println("the CVS command["+i+"] should be : cvs " +scm_commands[i]);
+    		    //listener.getLogger().println("the CVS command["+i+"] should be : cvs " +scm_commands[i]);
+    		    listener.getLogger().println("the CVS command["+i+"] should be : cvs " +scm_command);
     		}
         } else if ("hudson.scm.SubversionSCM".equals(projSCM.getType())) {
             proj_scm="svn";
@@ -349,15 +373,17 @@ public class ScanPluginBuilder extends Builder {
     		    scm_command=moduleLocation.getOriginRemote();
     		}     
         } else {
-        	listener.getLogger().println("this SCM is not GIT nor CVS");
-        	build_comments+=" unsupported SCM: " + projSCM.getType();
+            proj_scm=projSCM.getType();
+            scm_command="unknown";
+        	listener.getLogger().println("Unfortunately we do not support the builder " + proj_scm +". Please let us know you would like us to!");
+        	build_comments+=" unsupported SCM: " + proj_scm;
         }
 			 
  		// Submitting the build to Coverity
 		submitToCoverity(listener);
 
         // Creating link to the report
-        ScanPluginReport report = new ScanPluginReport(buildProj.getFullName(),getBuildNumber());
+        ScanPluginReport report = new ScanPluginReport(buildProj.getFullName(),getBuildNumber(), getName(), getPassword());
         build.addAction(report);
 
         listener.finished(Result.SUCCESS);

@@ -109,7 +109,7 @@ public class ScanPluginReport implements Action {
 	   		String urlParameters = "username="+ScanPluginConfiguration.encodeUTF8(getUsername());
 	   		urlParameters += "&password="+ScanPluginConfiguration.encodeUTF8(getPassword());
 	   		urlParameters += "&project="+ScanPluginConfiguration.encodeUTF8(getProjectName());
-	   		urlParameters += "&email="+ScanPluginConfiguration.encodeUTF8(getBuildNumber());
+	   		urlParameters += "&build="+ScanPluginConfiguration.encodeUTF8(getBuildNumber());
 	    	try {
 	      	    //Create connection
 	      		submitURL = new URL(ScanPluginConfiguration.REPORT_URL);

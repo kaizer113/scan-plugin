@@ -383,7 +383,7 @@ public class ScanPluginBuilder extends Builder {
 		submitToCoverity(listener);
 
         // Creating link to the report
-        ScanPluginReport report = new ScanPluginReport(buildProj.getFullName(),getBuildNumber(), getName(), getPassword());
+        ScanPluginReport report = new ScanPluginReport(project,getBuildNumber(), getName(), getPassword());
         build.addAction(report);
 
         listener.finished(Result.SUCCESS);

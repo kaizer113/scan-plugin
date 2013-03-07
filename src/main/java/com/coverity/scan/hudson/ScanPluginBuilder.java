@@ -369,11 +369,11 @@ public class ScanPluginBuilder extends Builder {
     			listener.getLogger().println("The Maven command was : mvn " + build_command);
     		} else if ("hudson.tasks.BatchFile".equals(iBuilder.getClass().getName())) {
     			BatchFile batchBuilder = (BatchFile) iBuilder;
-    			listener.getLogger().println("The Windows batch command was:" + batchBuilder.getCommand());
     			proj_builder="batch";
-    			build_command=batchBuilder.getCommand();
+    			build_command=batchBuilder.getCommand();    			
+    			listener.getLogger().println("The Batch command was:" + build_command);
     			if (build_command.isEmpty()) {
-    				listener.getLogger().println("Fatal error, the batch command is empty");
+    				listener.getLogger().println("Fatal error, the Batch command is empty");
     				return false;
     			}
     		} else if ("hudson.tasks.Ant".equals(iBuilder.getClass().getName())) {
@@ -405,11 +405,11 @@ public class ScanPluginBuilder extends Builder {
     			}
     		} else if ("hudson.tasks.Shell".equals(iBuilder.getClass().getName())) {
     			Shell shellBuilder = (Shell) iBuilder;
-    			listener.getLogger().println("The shell command was : " + shellBuilder.getCommand());
     			proj_builder="shell";
     			build_command=shellBuilder.getCommand();
+    			listener.getLogger().println("The Shell command was : " + build_command);
     			if (build_command.isEmpty()) {
-    				listener.getLogger().println("Fatal error, the shell command is empty");
+    				listener.getLogger().println("Fatal error, the Shell command is empty");
     				return false;
     			}    			
     		} else if ("com.coverity.scan.hudson.ScanPluginBuilder".equals(iBuilder.getClass().getName())) {

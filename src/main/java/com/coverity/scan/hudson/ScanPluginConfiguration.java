@@ -6,7 +6,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 public class ScanPluginConfiguration {
-    public static final String DISPLAY_NAME = "Coverity Scan Analyzis Report";
+    public static final String DISPLAY_NAME = "Coverity Scan Analysis Report";
     public static final String GRAPH_NAME = "Coverity Scan Analysis";
     public static final String URL = "scan-plugin";
     public static final String ICON_FILE_NAME = "graph.gif";

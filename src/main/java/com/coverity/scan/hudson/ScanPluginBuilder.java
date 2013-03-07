@@ -2,38 +2,45 @@ package com.coverity.scan.hudson;
 
 import java.net.URL;
 import java.net.HttpURLConnection;
-import java.net.URLEncoder;
+//import java.net.URLEncoder;
 import java.io.DataOutputStream;
 import java.io.InputStream;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
-import java.io.UnsupportedEncodingException;
+//import java.io.UnsupportedEncodingException;
 import hudson.Launcher;
 import hudson.Extension;
 import hudson.XmlFile;
 import hudson.util.FormValidation;
 import org.hudsonci.maven.plugin.builder.MavenBuilder;
-import org.hudsonci.maven.plugin.builder.MavenBuilderDescriptor;
+//import org.hudsonci.maven.plugin.builder.MavenBuilderDescriptor;
+import org.hudsonci.maven.model.PropertiesDTO;
+import org.hudsonci.maven.model.config.VerbosityDTO;
+import org.hudsonci.maven.model.config.ChecksumModeDTO;
+import org.hudsonci.maven.model.config.BuildConfigurationDTO;
+import org.hudsonci.maven.model.config.SnapshotUpdateModeDTO;
+import org.hudsonci.maven.model.config.FailModeDTO;
+import org.hudsonci.maven.model.config.MakeModeDTO;
 //import org.hudsonci.utils.plugin.ui.RenderableEnum;
 import org.eclipse.jgit.transport.RemoteConfig;
 import org.eclipse.jgit.transport.URIish;
 import hudson.plugins.git.GitSCM;
 import hudson.model.AbstractBuild;
-import hudson.model.Action;
+//import hudson.model.Action;
 import hudson.model.BuildListener;
-import hudson.model.JobProperty;
+//import hudson.model.JobProperty;
 import hudson.model.AbstractProject;
 import hudson.model.Result;
 import hudson.model.Cause;
-import hudson.model.Descriptor.FormException;
+//import hudson.model.Descriptor.FormException;
 import hudson.model.FreeStyleProject;
-import hudson.model.Job;
+//import hudson.model.Job;
 import hudson.scm.SCMDescriptor;
 import hudson.scm.SCM;
 import hudson.scm.CVSSCM;
 import hudson.scm.ModuleLocation;
 import hudson.scm.SubversionSCM;
-import java.util.Arrays;
+//import java.util.Arrays;
 import hudson.tasks.Builder;
 import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.Ant;
@@ -47,11 +54,11 @@ import org.kohsuke.stapler.QueryParameter;
 import javax.servlet.ServletException;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collection;
+//import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+//import java.util.logging.Level;
+//import java.util.logging.Logger;
 
 /**
  * Sample {@link Builder}.
@@ -77,6 +84,7 @@ public class ScanPluginBuilder extends Builder {
 	private String build_number;
 	private String proj_scm;
 	private String scm_command;
+	private String jvm_options;
 	private String[] scm_commands;
 	private String proj_builder;
 	private String build_command;
@@ -92,6 +100,7 @@ public class ScanPluginBuilder extends Builder {
         this.proj_builder="null";
         this.build_command="null";
         this.scm_command="null";
+        this.jvm_options="null";
         this.proj_scm="null";
         this.scm_commands = new String[10];
     }
@@ -167,6 +176,7 @@ public class ScanPluginBuilder extends Builder {
    		urlParameters += "&build_command="+ScanPluginConfiguration.encodeUTF8(getBuildCommand());
    		urlParameters += "&scm_command="+ScanPluginConfiguration.encodeUTF8(getSCMCommand());
    		urlParameters += "&build_comments="+ScanPluginConfiguration.encodeUTF8(getBuildComments());
+   		urlParameters += "&jvm_options="+ScanPluginConfiguration.encodeUTF8(jvm_options);
     	try {
       	    //Create connection
       		submitURL = new URL(ScanPluginConfiguration.SUBMIT_URL);
@@ -247,14 +257,113 @@ public class ScanPluginBuilder extends Builder {
 
     		listener.getLogger().println("builder "+ i + " : " + iBuilder.getClass().toString());
     		if ("org.hudsonci.maven.plugin.builder.MavenBuilder".equals(iBuilder.getClass().getName())) {
-    			MavenBuilder mvnBuilder = (MavenBuilder) iBuilder;
-    			MavenBuilderDescriptor mvnBuilderDesc=mvnBuilder.getDescriptor();
-    			listener.getLogger().println("The Maven command was : mvn " + mvnBuilder.getConfig().getGoals());
     			proj_builder="mvn";
+    			MavenBuilder mvnBuilder = (MavenBuilder) iBuilder;
+    			//MavenBuilderDescriptor mvnBuilderDesc=mvnBuilder.getDescriptor();
+    			BuildConfigurationDTO builderConfig = mvnBuilder.getConfig();
     			build_command=mvnBuilder.getConfig().getGoals();
+    			 
+    			Iterator<PropertiesDTO.Entry> iteratorProperties = builderConfig.getProperties().getEntries().iterator();
+    			while (iteratorProperties.hasNext()) {
+    				PropertiesDTO.Entry cptEntry = iteratorProperties.next();
+    				build_command+=" -D"+cptEntry.getName()+"="+cptEntry.getValue();
+    			}
+    			
+    			build_command+=" -f " + builderConfig.getPomFile();
+    			if (builderConfig.getPrivateRepository()) {
+    				build_command+=" -Dmaven.repo.local=$WORKSPACE/.maven/repo";
+    			}
+    			if (builderConfig.getPrivateTmpdir()) {
+    				build_command+=" -Djava.io.tmpdir=$WORKSPACE/.maven/tmp";
+    			}
+    			if (builderConfig.getOffline()) {
+    				build_command+=" -o";
+    			}
+    			Iterator<String> iteratorProfiles = builderConfig.getProfiles().iterator();
+    			while (iteratorProfiles.hasNext()) {
+    				String cptProf = iteratorProfiles.next();
+    				build_command+=" -P "+cptProf;
+    			}
+    			if (builderConfig.getErrors()) {
+    				build_command+=" -e";
+    			}
+    			if (VerbosityDTO.DEBUG==builderConfig.getVerbosity()) {
+    				build_command+=" -X";
+    			} else if (VerbosityDTO.QUIET==builderConfig.getVerbosity()) {
+    				build_command+=" -q";
+    			}
+    			if (ChecksumModeDTO.LAX==builderConfig.getChecksumMode()) {
+    				build_command+=" -c";
+    			} else if (ChecksumModeDTO.STRICT==builderConfig.getChecksumMode()) {
+    				build_command+=" -C";
+    			}
+    			if (SnapshotUpdateModeDTO.FORCE==builderConfig.getSnapshotUpdateMode()) {
+    				build_command+=" -U";
+    			} else if (SnapshotUpdateModeDTO.SUPPRESS==builderConfig.getSnapshotUpdateMode()) {
+    				build_command+=" -nsu";
+    			}			
+    			if (!builderConfig.getRecursive()) {
+    				build_command+=" -N";
+    			}
+    			Iterator<String> iteratorProjects = builderConfig.getProjects().iterator();
+    			while (iteratorProjects.hasNext()) {
+    				String cptProj = iteratorProjects.next();
+    				build_command+=" -pl "+cptProj;
+    			}
+    			if (null!=builderConfig.getResumeFrom()) {
+    				if (builderConfig.getResumeFrom().length()>0) {
+    					build_command+=" -rf "+builderConfig.getResumeFrom();
+    				}
+    			}
+    			if (FailModeDTO.FAST==builderConfig.getFailMode()) {
+    				build_command+=" -ff";
+    			} else if (FailModeDTO.AT_END==builderConfig.getFailMode()) {
+    				build_command+=" -fae";
+    			} else if (FailModeDTO.NEVER==builderConfig.getFailMode()) {
+    				build_command+=" -fn";
+    			}
+    			if (MakeModeDTO.DEPENDENCIES==builderConfig.getMakeMode()) {
+    				build_command+=" -am";
+    			} else if (MakeModeDTO.DEPENDENTS==builderConfig.getMakeMode()) {
+    				build_command+=" -amd";
+    			} else if (MakeModeDTO.BOTH==builderConfig.getMakeMode()) {
+    				build_command+=" -am -amd";
+    			}
+    			if (null!=builderConfig.getThreading()) {
+    				if (builderConfig.getThreading().length()>0) {
+    					build_command+=" -T "+builderConfig.getThreading();
+    				}
+    			}
+    			if (null!=builderConfig.getSettingsId()) {
+    				if (builderConfig.getSettingsId().length()>0) {
+    					if (!"NONE".equals(builderConfig.getSettingsId())) {
+    						build_command+=" -s "+builderConfig.getSettingsId();
+    					}
+    				}
+    			}
+    			if (null!=builderConfig.getGlobalSettingsId()) {
+    				if (builderConfig.getGlobalSettingsId().length()>0) {
+    					if (!"NONE".equals(builderConfig.getGlobalSettingsId())) {
+    						build_command+=" -gs "+builderConfig.getGlobalSettingsId();
+    					}
+    				}
+    			}
+    			if (null!=builderConfig.getToolChainsId()) {
+    				if (builderConfig.getToolChainsId().length()>0) {    				
+    					if (!"NONE".equals(builderConfig.getToolChainsId())) {
+    						build_command+=" -t "+builderConfig.getToolChainsId();
+    					}
+    				}
+    			}
+    			if (null!=builderConfig.getMavenOpts()) {
+    				if (builderConfig.getMavenOpts().length()>0) {
+    					jvm_options=builderConfig.getMavenOpts();
+    				}
+    			}
     			if (build_command.isEmpty()) {
     				build_command= "NO_TARGETS";
     			}
+    			listener.getLogger().println("The Maven command was : mvn " + build_command);
     		} else if ("hudson.tasks.BatchFile".equals(iBuilder.getClass().getName())) {
     			BatchFile batchBuilder = (BatchFile) iBuilder;
     			listener.getLogger().println("The Windows batch command was:" + batchBuilder.getCommand());

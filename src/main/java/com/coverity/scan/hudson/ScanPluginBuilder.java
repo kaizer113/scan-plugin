@@ -12,6 +12,8 @@ import hudson.Launcher;
 import hudson.Extension;
 import hudson.XmlFile;
 import hudson.util.FormValidation;
+import hudson.util.ArgumentListBuilder;
+import hudson.util.VariableResolver;
 import org.hudsonci.maven.plugin.builder.MavenBuilder;
 //import org.hudsonci.maven.plugin.builder.MavenBuilderDescriptor;
 import org.hudsonci.maven.model.PropertiesDTO;
@@ -25,6 +27,7 @@ import org.hudsonci.maven.model.config.MakeModeDTO;
 import org.eclipse.jgit.transport.RemoteConfig;
 import org.eclipse.jgit.transport.URIish;
 import hudson.plugins.git.GitSCM;
+import hudson.plugins.git.BranchSpec;
 import hudson.model.AbstractBuild;
 //import hudson.model.Action;
 import hudson.model.BuildListener;
@@ -35,7 +38,7 @@ import hudson.model.Cause;
 //import hudson.model.Descriptor.FormException;
 import hudson.model.FreeStyleProject;
 //import hudson.model.Job;
-import hudson.scm.SCMDescriptor;
+//import hudson.scm.SCMDescriptor;
 import hudson.scm.SCM;
 import hudson.scm.CVSSCM;
 import hudson.scm.ModuleLocation;
@@ -51,14 +54,16 @@ import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.StaplerRequest;
 import org.kohsuke.stapler.QueryParameter;
 
+import org.apache.commons.lang3.StringUtils;
 import javax.servlet.ServletException;
 import java.io.IOException;
 import java.util.ArrayList;
 //import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
-//import java.util.logging.Level;
-//import java.util.logging.Logger;
+import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Sample {@link Builder}.
@@ -247,7 +252,7 @@ public class ScanPluginBuilder extends Builder {
         listener.getLogger().println("");
 
         FreeStyleProject realProj = (FreeStyleProject) build.getProject();
-    	List projBuilders = realProj.getBuilders();
+    	List<Builder> projBuilders = realProj.getBuilders();
     	Iterator<Builder> iteratorBuilder = projBuilders.iterator();
     	
     	int i=0;
@@ -355,10 +360,8 @@ public class ScanPluginBuilder extends Builder {
     					}
     				}
     			}
-    			if (null!=builderConfig.getMavenOpts()) {
-    				if (builderConfig.getMavenOpts().length()>0) {
-    					jvm_options=builderConfig.getMavenOpts();
-    				}
+    			if (StringUtils.trimToEmpty(builderConfig.getMavenOpts()).length()>0) {
+    				jvm_options=builderConfig.getMavenOpts();
     			}
     			if (build_command.isEmpty()) {
     				build_command= "NO_TARGETS";
@@ -375,9 +378,28 @@ public class ScanPluginBuilder extends Builder {
     			}
     		} else if ("hudson.tasks.Ant".equals(iBuilder.getClass().getName())) {
     			Ant antBuilder = (Ant) iBuilder;
-    			listener.getLogger().println("The Ant command was : ant " + antBuilder.getTargets());
     			proj_builder="ant";
     			build_command=antBuilder.getTargets();
+    			if (StringUtils.trimToEmpty(antBuilder.getBuildFile()).length()>0) {
+    				build_command+= " -f " + antBuilder.getBuildFile(); 
+    			}
+    			try {
+    			    ArgumentListBuilder args= new ArgumentListBuilder();
+    			    Set<String> sensitiveVars = build.getSensitiveBuildVariables();
+    			    VariableResolver<String> vr = build.getBuildVariableResolver();
+    		        args.addKeyValuePairsFromPropertyString("-D", antBuilder.getProperties(), vr, sensitiveVars);
+    		        Iterator<String> iteratorProperties = args.toList().iterator();
+    				while (iteratorProperties.hasNext()) {
+    					String cptProp = iteratorProperties.next();
+    					build_command+=" "+cptProp;
+    				}
+    				if (StringUtils.trimToEmpty(antBuilder.getAntOpts()).length()>0) {
+    					jvm_options=antBuilder.getAntOpts();
+    				}
+    			} catch (IOException ex) {
+    				Logger.getLogger(ScanPluginBuilder.class.getName()).log(Level.SEVERE, null, ex);
+    			}
+    			listener.getLogger().println("The Ant command was : ant " + build_command);
     			if (build_command.isEmpty()) {
     				build_command= "NO_TARGETS";
     			}
@@ -399,46 +421,48 @@ public class ScanPluginBuilder extends Builder {
     	}
 
         listener.getLogger().println("");
-        listener.getLogger().println("Extracting the SCM");
-
         SCM projSCM = buildProj.getScm();
+        listener.getLogger().println("Extracting the SCM"+projSCM.getType());
 
-        listener.getLogger().println("scm.type="+projSCM.getType());
-		SCMDescriptor<?> scmDesc = projSCM.getDescriptor();
-		//listener.getLogger().println("the SCM descriptor is: " + scmDesc.getClass().getName());
+		//SCMDescriptor<?> scmDesc = projSCM.getDescriptor();
  		if ("hudson.plugins.git.GitSCM".equals(projSCM.getType())) {
 			proj_scm="git";
             GitSCM theSCM;
         
         	theSCM = (GitSCM) projSCM;
-           // listener.getLogger().println("the git command was : getGitConfigName " + theSCM.getGitConfigName());
-        	//listener.getLogger().println("the git command was : getGitConfigEmail " + theSCM.getGitConfigEmail());
-        	//listener.getLogger().println("the git command was : getGitTool " + theSCM.getGitTool());
-        	//<? extends RemoteConfig>
-            Iterator  repositoryIterator = theSCM.getRepositories().iterator();
+            Iterator<RemoteConfig>  repositoryIterator = theSCM.getRepositories().iterator();
          
 			int j=0;
 			while (repositoryIterator.hasNext()) {
 				j++;
-				//listener.getLogger().println("Git Scm  repository " + j);
 				RemoteConfig jConfig = (RemoteConfig) repositoryIterator.next();
-				//listener.getLogger().println("Git Scm  repository  " + j + " content:");
-				//listener.getLogger().println("Git Scm  repository  " + j + " : " + jConfig.getName());
-				Iterator  URIIterator = jConfig.getURIs().iterator();
+				Iterator<URIish>  URIIterator = jConfig.getURIs().iterator();
 				int k=0;
 				while (URIIterator.hasNext()) {
 					k++;
 					//listener.getLogger().println("Git Scm " + j + " URI " +k);
 					URIish kURI = (URIish) URIIterator.next();
-					//listener.getLogger().println("Git Scm  repository  " + j + " URI " +k+ " content:");
 					listener.getLogger().println("Git Scm  repository  " + j + " URI " +k+ " toPrivateString : " + kURI.toPrivateString());
-					scm_command=kURI.toPrivateString();
+					scm_command=kURI.toPrivateString() + " " + project;
 					//listener.getLogger().println("Git Scm  repository  " + j + " URI " +k+ " getHost : " + kURI.getHost());
 				}
 			}
+			
+			Iterator<BranchSpec> iteratorBranches = theSCM.getBranches().iterator();
+    		while (iteratorBranches.hasNext()) {
+    			String cptBranch = iteratorBranches.next().getName();
+    			scm_command+=" -b "+cptBranch;  
+    			//REMOVE
+    			//break;   // BAD JUST FOR TEST
+    		}
+    		
+    		if (theSCM.getRecursiveSubmodules()) {
+    			scm_command+=" --recursive";
+    		}
+			
         } else if ("hudson.scm.CVSSCM".equals(projSCM.getType())) {
         	proj_scm="cvs";
-        	listener.getLogger().println("this SCM is CVS");
+        	listener.getLogger().println("This SCM is CVS");
         	CVSSCM theSCM;
             theSCM = (CVSSCM) projSCM;
             i=0;
@@ -459,28 +483,29 @@ public class ScanPluginBuilder extends Builder {
       				scm_command+=" -r " + moduleLocation.getBranch();
     			}
     			scm_command+=" -d " + project +" "; 
-    			//scm_commands[i]+= " -d WORKSPACE ";
     			scm_command+=moduleLocation.getModule();  
     			//scm_commands[i]+= moduleLocation.getModule(); 
     		    listener.getLogger().println("the CVS root is "+moduleLocation.getCvsroot());
     		    //listener.getLogger().println("the CVS branch to build is "+moduleLocation.getBranch());
     		    listener.getLogger().println("the CVS module is "+moduleLocation.getModule());
-    		    //listener.getLogger().println("the CVS location is "+Arrays.toString(moduleLocation.getNormalizedModules()));
     		    //listener.getLogger().println("the CVS command["+i+"] should be : cvs " +scm_commands[i]);
     		    listener.getLogger().println("the CVS command["+i+"] should be : cvs " +scm_command);
     		}
         } else if ("hudson.scm.SubversionSCM".equals(projSCM.getType())) {
             proj_scm="svn";
-        	listener.getLogger().println("this SCM is SVN");
+        	listener.getLogger().println("This SCM is SVN");
         	SubversionSCM theSCM;
             theSCM = (SubversionSCM) projSCM;
             scm_command="";
             for (SubversionSCM.ModuleLocation moduleLocation : theSCM.getLocations()) {
-    		    listener.getLogger().println("the svn URL is "+moduleLocation.getURL());
-    		    listener.getLogger().println("the svn full remote is "+moduleLocation.getOriginRemote());
-    		    listener.getLogger().println("the svn depth option is "+moduleLocation.getDepthOption());
-    		    scm_command=moduleLocation.getOriginRemote();
-    		}     
+            	scm_command=moduleLocation.getOriginRemote();
+            	scm_command+=" " + project;
+    		    scm_command+=" --depth " + moduleLocation.getDepthOption();
+    		    if (moduleLocation.isIgnoreExternalsOption()) {
+    		    	scm_command+=" --ignore-externals";
+    		    }
+    		} 
+    		listener.getLogger().println("The SVN command should be : svn " +scm_command);
         } else {
             proj_scm=projSCM.getType();
             scm_command="unknown";

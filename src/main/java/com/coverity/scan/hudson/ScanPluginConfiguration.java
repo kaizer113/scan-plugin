@@ -19,7 +19,7 @@ public class ScanPluginConfiguration {
     	try {
     		return URLEncoder.encode(str, "UTF-8");
     	} catch (UnsupportedEncodingException ex){
-    		Logger.getLogger(ScanPluginBuilder.class.getName()).log(Level.SEVERE, null, ex);
+    		Logger.getLogger(ScanPluginConfiguration.class.getName()).log(Level.SEVERE, null, ex);
     		return "Failed to encode";
     	}    		
     }

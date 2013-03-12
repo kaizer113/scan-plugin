@@ -102,11 +102,6 @@ public class ScanPluginBuilder extends Builder {
         this.password = password;
         this.email = email;
         this.project = project;
-        this.proj_builder="null";
-        this.build_command="null";
-        this.scm_command="null";
-        this.jvm_options="null";
-        this.proj_scm="null";
         this.scm_commands = new String[10];
     }
 
@@ -172,7 +167,6 @@ public class ScanPluginBuilder extends Builder {
    		HttpURLConnection connection = null;  
    		
    		String urlParameters = "username="+ScanPluginConfiguration.encodeUTF8(getName());
-   		urlParameters += "&password="+ScanPluginConfiguration.encodeUTF8(getPassword());
    		urlParameters += "&project="+ScanPluginConfiguration.encodeUTF8(getProject());
    		urlParameters += "&email="+ScanPluginConfiguration.encodeUTF8(getEmail());
    		urlParameters += "&build_number="+ScanPluginConfiguration.encodeUTF8(getBuildNumber());
@@ -181,7 +175,10 @@ public class ScanPluginBuilder extends Builder {
    		urlParameters += "&build_command="+ScanPluginConfiguration.encodeUTF8(getBuildCommand());
    		urlParameters += "&scm_command="+ScanPluginConfiguration.encodeUTF8(getSCMCommand());
    		urlParameters += "&build_comments="+ScanPluginConfiguration.encodeUTF8(getBuildComments());
+   		listener.getLogger().println("jvm_options: "+jvm_options+"_");
    		urlParameters += "&jvm_options="+ScanPluginConfiguration.encodeUTF8(jvm_options);
+   		listener.getLogger().println("Options sent to Coverity are: "+urlParameters);
+   		urlParameters += "&password="+ScanPluginConfiguration.encodeUTF8(getPassword());
     	try {
       	    //Create connection
       		submitURL = new URL(ScanPluginConfiguration.SUBMIT_URL);
@@ -194,7 +191,6 @@ public class ScanPluginBuilder extends Builder {
       		connection.setDoInput(true);
       		connection.setDoOutput(true);
             listener.getLogger().println("Connecting to Coverity at: " + ScanPluginConfiguration.SUBMIT_URL);
-			listener.getLogger().println("Options sent to Coverity are: "+urlParameters);
 			
       		//Send request
       		DataOutputStream wr = new DataOutputStream (connection.getOutputStream ());
@@ -226,6 +222,11 @@ public class ScanPluginBuilder extends Builder {
 
     @Override
     public boolean perform(AbstractBuild build, Launcher launcher, BuildListener listener) {
+    	jvm_options="none";
+        proj_builder="none";
+        build_command="none";
+        scm_command="none";
+        proj_scm="none";
 		List<Cause> buildStepCause = new ArrayList();
 		 buildStepCause.add(new Cause() {
 		   public String getShortDescription() {
@@ -233,12 +234,12 @@ public class ScanPluginBuilder extends Builder {
 		   }
 		 });
         listener.started(buildStepCause);
-
+        
         // this also shows how you can consult the global configuration of the builder
         if(getDescriptor().useFrench())
-            listener.getLogger().println("Bonjour, "+name+" " + password + " " + email + " " + project + "!");
+            listener.getLogger().println("Bonjour, " + name + " " + email + " " + project + "!");
         else
-            listener.getLogger().println("Hello, "+name+" " + password + " " + email + " " + project + "!");
+            listener.getLogger().println("Hello, "+name+" " + email + " " + project + "!");
 
         // now showing the build object
         AbstractProject<?,?> buildProj = build.getProject();
@@ -361,7 +362,10 @@ public class ScanPluginBuilder extends Builder {
     				}
     			}
     			if (StringUtils.trimToEmpty(builderConfig.getMavenOpts()).length()>0) {
-    				jvm_options=builderConfig.getMavenOpts();
+    			   	if (!("null".equals(builderConfig.getMavenOpts()))) {
+    					jvm_options=builderConfig.getMavenOpts();
+    				    //listener.getLogger().println("Setting jvm_options:" + jvm_options);
+    				}
     			}
     			if (build_command.isEmpty()) {
     				build_command= "NO_TARGETS";
@@ -394,7 +398,10 @@ public class ScanPluginBuilder extends Builder {
     					build_command+=" "+cptProp;
     				}
     				if (StringUtils.trimToEmpty(antBuilder.getAntOpts()).length()>0) {
-    					jvm_options=antBuilder.getAntOpts();
+    					if (!("null".equals(antBuilder.getAntOpts()))) {
+    						jvm_options=antBuilder.getAntOpts();
+    				    	//listener.getLogger().println("Setting jvm_options:" + jvm_options);
+    					}
     				}
     			} catch (IOException ex) {
     				Logger.getLogger(ScanPluginBuilder.class.getName()).log(Level.SEVERE, null, ex);

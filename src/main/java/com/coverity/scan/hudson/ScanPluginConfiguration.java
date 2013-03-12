@@ -21,7 +21,11 @@ public class ScanPluginConfiguration {
     	} catch (UnsupportedEncodingException ex){
     		Logger.getLogger(ScanPluginConfiguration.class.getName()).log(Level.SEVERE, null, ex);
     		return "Failed to encode";
-    	}    		
+    	} 
+    	catch (Exception ex){
+    		Logger.getLogger(ScanPluginConfiguration.class.getName()).log(Level.SEVERE, null, ex);
+    		return "Failed to encode - General Exception";
+    	} 
     }
     public static String badFunction(){
     	String result;

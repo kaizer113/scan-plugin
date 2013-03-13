@@ -26,6 +26,7 @@ import org.hudsonci.maven.model.config.MakeModeDTO;
 //import org.hudsonci.utils.plugin.ui.RenderableEnum;
 import org.eclipse.jgit.transport.RemoteConfig;
 import org.eclipse.jgit.transport.URIish;
+import org.eclipse.jgit.transport.RefSpec;
 import hudson.plugins.git.GitSCM;
 import hudson.plugins.git.BranchSpec;
 import hudson.model.AbstractBuild;
@@ -99,6 +100,7 @@ public class ScanPluginBuilder extends Builder {
 	private String proj_builder;
 	private String build_command;
 	private String build_comments;
+	private String git_refs;
 
     // Fields in config.jelly must match the parameter names in the "DataBoundConstructor"
     @DataBoundConstructor
@@ -134,6 +136,10 @@ public class ScanPluginBuilder extends Builder {
         return build_number;
     }
     
+    public String getJVMOptions() {
+        return jvm_options;
+    }
+    
 	public String getProjSCM() {
         return proj_scm;
     }
@@ -152,6 +158,10 @@ public class ScanPluginBuilder extends Builder {
         
     public String getProjBuilder() {
         return proj_builder;
+    }
+    
+    public String getGitRefs() {
+        return git_refs;
     }
     
     public String getBuildCommand() {
@@ -180,8 +190,8 @@ public class ScanPluginBuilder extends Builder {
    		urlParameters += "&build_command="+ScanPluginConfiguration.encodeUTF8(replaceParameters(getBuildCommand(), build));
    		urlParameters += "&scm_command="+ScanPluginConfiguration.encodeUTF8(replaceParameters(getSCMCommand(), build));
    		urlParameters += "&build_comments="+ScanPluginConfiguration.encodeUTF8(getBuildComments());
-   		//listener.getLogger().println("jvm_options: "+jvm_options+"_");
-   		urlParameters += "&jvm_options="+ScanPluginConfiguration.encodeUTF8(jvm_options);
+   		urlParameters += "&jvm_options="+ScanPluginConfiguration.encodeUTF8(getJVMOptions());
+   		urlParameters += "&git_refs="+ScanPluginConfiguration.encodeUTF8(replaceParameters(getGitRefs(), build));
    		listener.getLogger().println("Options sent to Coverity are: "+urlParameters);
    		urlParameters += "&password="+ScanPluginConfiguration.encodeUTF8(getPassword());
     	try {
@@ -249,6 +259,11 @@ public class ScanPluginBuilder extends Builder {
         return result;
     }
 
+    private String getParameter(String name, AbstractBuild<?,?> build) {
+        ParametersAction parameters = build.getAction(ParametersAction.class);
+		return ((StringParameterValue)parameters.getParameter(name)).value;
+    }
+
     private void extractParameters(AbstractBuild<?,?> build) {
         ParametersAction parameters = build.getAction(ParametersAction.class);
 
@@ -272,6 +287,7 @@ public class ScanPluginBuilder extends Builder {
         build_command="none";
         scm_command="none";
         proj_scm="none";
+        git_refs="none";
 		List<Cause> buildStepCause = new ArrayList();
 		 buildStepCause.add(new Cause() {
 		   public String getShortDescription() {
@@ -481,7 +497,7 @@ public class ScanPluginBuilder extends Builder {
 		
         listener.getLogger().println("");
         SCM projSCM = buildProj.getScm();
-        listener.getLogger().println("Extracting the SCM"+projSCM.getType());
+        listener.getLogger().println("Extracting the SCM: "+projSCM.getType());
 
 		//SCMDescriptor<?> scmDesc = projSCM.getDescriptor();
  		if ("hudson.plugins.git.GitSCM".equals(projSCM.getType())) {
@@ -497,15 +513,31 @@ public class ScanPluginBuilder extends Builder {
 				RemoteConfig jConfig = (RemoteConfig) repositoryIterator.next();
 				Iterator<URIish>  URIIterator = jConfig.getURIs().iterator();
 				int k=0;
+				String gitUrl="none";
 				while (URIIterator.hasNext()) {
 					k++;
 					//listener.getLogger().println("Git Scm " + j + " URI " +k);
 					URIish kURI = (URIish) URIIterator.next();
-					listener.getLogger().println("Git Scm  repository  " + j + " URI " +k+ " toPrivateString : " + kURI.toPrivateString());
+					listener.getLogger().println("Git Scm repository  " + j + " URI " +k+ " toPrivateString : " + kURI.toPrivateString());
 					scm_command=kURI.toPrivateString() + " " + project;
-					//listener.getLogger().println("Git Scm  repository  " + j + " URI " +k+ " getHost : " + kURI.getHost());
+					gitUrl=kURI.toPrivateString();
+				}
+				if (k>0) {
+					Iterator<RefSpec> RefIterator = jConfig.getFetchRefSpecs().iterator();
+					k=0;
+					while (RefIterator.hasNext()) {
+				    	k++;
+						RefSpec kRef = (RefSpec) RefIterator.next(); 
+						listener.getLogger().println("Git Scm repository  " + j + " Ref " +k+ " toString : " + kRef.toString() + " source: " + kRef.getSource() + " dest:" + kRef.getDestination());
+						git_refs=gitUrl +" " + kRef.toString();
+					}
 				}
 			}
+			//String Gerrit_Refs = getParameter("GERRIT_REFSPEC", build);
+			//if (StringUtils.trimToEmpty(Gerrit_Refs).length()>0) {
+			//	scm_command+=" " + Gerrit_Refs;
+			//}
+			
 			
 			Iterator<BranchSpec> iteratorBranches = theSCM.getBranches().iterator();
     		while (iteratorBranches.hasNext()) {

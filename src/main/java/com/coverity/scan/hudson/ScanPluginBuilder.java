@@ -31,9 +31,13 @@ import hudson.plugins.git.BranchSpec;
 import hudson.model.AbstractBuild;
 //import hudson.model.Action;
 import hudson.model.BuildListener;
+import hudson.model.ParameterValue;
+import hudson.model.ParametersAction;
 //import hudson.model.JobProperty;
 import hudson.model.AbstractProject;
 import hudson.model.Result;
+import hudson.model.StringParameterValue;
+import hudson.model.BooleanParameterValue;
 import hudson.model.Cause;
 //import hudson.model.Descriptor.FormException;
 import hudson.model.FreeStyleProject;
@@ -61,6 +65,7 @@ import java.util.ArrayList;
 //import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -162,7 +167,7 @@ public class ScanPluginBuilder extends Builder {
     	}    		
     }*/
     
-    private boolean submitToCoverity(BuildListener listener){
+    private boolean submitToCoverity(AbstractBuild<?,?> build, BuildListener listener){
         URL submitURL;
    		HttpURLConnection connection = null;  
    		
@@ -172,10 +177,10 @@ public class ScanPluginBuilder extends Builder {
    		urlParameters += "&build_number="+ScanPluginConfiguration.encodeUTF8(getBuildNumber());
    		urlParameters += "&proj_scm="+ScanPluginConfiguration.encodeUTF8(getProjSCM());
    		urlParameters += "&proj_builder="+ScanPluginConfiguration.encodeUTF8(getProjBuilder());
-   		urlParameters += "&build_command="+ScanPluginConfiguration.encodeUTF8(getBuildCommand());
-   		urlParameters += "&scm_command="+ScanPluginConfiguration.encodeUTF8(getSCMCommand());
+   		urlParameters += "&build_command="+ScanPluginConfiguration.encodeUTF8(replaceParameters(getBuildCommand(), build));
+   		urlParameters += "&scm_command="+ScanPluginConfiguration.encodeUTF8(replaceParameters(getSCMCommand(), build));
    		urlParameters += "&build_comments="+ScanPluginConfiguration.encodeUTF8(getBuildComments());
-   		listener.getLogger().println("jvm_options: "+jvm_options+"_");
+   		//listener.getLogger().println("jvm_options: "+jvm_options+"_");
    		urlParameters += "&jvm_options="+ScanPluginConfiguration.encodeUTF8(jvm_options);
    		listener.getLogger().println("Options sent to Coverity are: "+urlParameters);
    		urlParameters += "&password="+ScanPluginConfiguration.encodeUTF8(getPassword());
@@ -220,6 +225,46 @@ public class ScanPluginBuilder extends Builder {
    	 	return true;
     }
 
+	private void printEnv(BuildListener listener) {
+		Map<String, String> variables = System.getenv();  
+  		listener.getLogger().println("printEnv>");
+		for (Map.Entry<String, String> entry : variables.entrySet())  { 
+   			listener.getLogger().println(entry.getKey() + "=" + entry.getValue());  
+		}
+	}   
+
+   private String replaceParameters(String input, AbstractBuild<?,?> build) {
+        ParametersAction parameters = build.getAction(ParametersAction.class);
+		String result = input;
+        if (parameters != null) {
+            Iterator<ParameterValue> iteratorParam = parameters.iterator();
+    		while (iteratorParam.hasNext()) {
+    			ParameterValue iParam = iteratorParam.next();
+    			if (iParam.getClass().getName().equals("hudson.model.StringParameterValue")) {
+    				result = result.replaceAll("\\$"+iParam.getName(),((StringParameterValue)iParam).value);
+    				//  \\$  because 1 escape for java, 1 escape for RegExp
+            	} 
+            }
+        }
+        return result;
+    }
+
+    private void extractParameters(AbstractBuild<?,?> build) {
+        ParametersAction parameters = build.getAction(ParametersAction.class);
+
+        if (parameters != null) {
+            Iterator<ParameterValue> iteratorParam = parameters.iterator();
+    		while (iteratorParam.hasNext()) {
+    			ParameterValue iParam = iteratorParam.next();
+    			if (iParam.getClass().getName().equals("hudson.model.StringParameterValue")) {
+    			    build_command+=" -D"+iParam.getName()+"="+((StringParameterValue)iParam).value;
+            	} else if(iParam.getClass().getName().equals("hudson.model.BooleanParameterValue")) {
+            	    build_command+=" -D"+iParam.getName()+"="+((BooleanParameterValue)iParam).value;
+                }
+            }
+        }
+    }
+
     @Override
     public boolean perform(AbstractBuild build, Launcher launcher, BuildListener listener) {
     	jvm_options="none";
@@ -241,6 +286,9 @@ public class ScanPluginBuilder extends Builder {
         else
             listener.getLogger().println("Hello, "+name+" " + email + " " + project + "!");
 
+		//
+		//printEnv(listener);
+		
         // now showing the build object
         AbstractProject<?,?> buildProj = build.getProject();
         listener.getLogger().println("This project is called: "+buildProj.getName());
@@ -367,6 +415,7 @@ public class ScanPluginBuilder extends Builder {
     				    //listener.getLogger().println("Setting jvm_options:" + jvm_options);
     				}
     			}
+    			extractParameters(build);
     			if (build_command.isEmpty()) {
     				build_command= "NO_TARGETS";
     			}
@@ -406,6 +455,7 @@ public class ScanPluginBuilder extends Builder {
     			} catch (IOException ex) {
     				Logger.getLogger(ScanPluginBuilder.class.getName()).log(Level.SEVERE, null, ex);
     			}
+    			extractParameters(build);
     			listener.getLogger().println("The Ant command was : ant " + build_command);
     			if (build_command.isEmpty()) {
     				build_command= "NO_TARGETS";
@@ -427,6 +477,8 @@ public class ScanPluginBuilder extends Builder {
     		}
     	}
 
+
+		
         listener.getLogger().println("");
         SCM projSCM = buildProj.getScm();
         listener.getLogger().println("Extracting the SCM"+projSCM.getType());
@@ -521,7 +573,7 @@ public class ScanPluginBuilder extends Builder {
         }
 			 
  		// Submitting the build to Coverity
-		submitToCoverity(listener);
+		submitToCoverity(build, listener);
 
         // Creating link to the report
         ScanPluginReport report = new ScanPluginReport(project,getBuildNumber(), getName(), getPassword());

@@ -104,11 +104,10 @@ public class ScanPluginBuilder extends Builder {
 
     // Fields in config.jelly must match the parameter names in the "DataBoundConstructor"
     @DataBoundConstructor
-    public ScanPluginBuilder(String name, String password, String email, String project) {
+    public ScanPluginBuilder(String name, String password, String email) {
         this.name = name;
         this.password = password;
         this.email = email;
-        this.project = project;
         this.scm_commands = new String[10];
     }
 
@@ -298,16 +297,17 @@ public class ScanPluginBuilder extends Builder {
         
         // this also shows how you can consult the global configuration of the builder
         if(getDescriptor().useFrench())
-            listener.getLogger().println("Bonjour, " + name + " " + email + " " + project + "!");
+            listener.getLogger().println("Bonjour, " + name + " " + email + "!");
         else
-            listener.getLogger().println("Hello, "+name+" " + email + " " + project + "!");
+            listener.getLogger().println("Hello, "+name+" " + email + "!");
 
 		//
 		//printEnv(listener);
 		
         // now showing the build object
         AbstractProject<?,?> buildProj = build.getProject();
-        listener.getLogger().println("This project is called: "+buildProj.getName());
+        project=buildProj.getName();
+        listener.getLogger().println("This project is called: "+project);
         listener.getLogger().println("The build number is: "+ build.getNumber());
         build_number=Integer.toString(build.getNumber());
         build_comments= project+ " build #"+ build_number;
@@ -528,7 +528,7 @@ public class ScanPluginBuilder extends Builder {
 					while (RefIterator.hasNext()) {
 				    	k++;
 						RefSpec kRef = (RefSpec) RefIterator.next(); 
-						listener.getLogger().println("Git Scm repository  " + j + " Ref " +k+ " toString : " + kRef.toString() + " source: " + kRef.getSource() + " dest:" + kRef.getDestination());
+						listener.getLogger().println("Git Scm repository  " + j + " Ref " +k+ " toString : " + kRef.toString());
 						git_refs=gitUrl +" " + kRef.toString();
 					}
 				}
@@ -542,9 +542,7 @@ public class ScanPluginBuilder extends Builder {
 			Iterator<BranchSpec> iteratorBranches = theSCM.getBranches().iterator();
     		while (iteratorBranches.hasNext()) {
     			String cptBranch = iteratorBranches.next().getName();
-    			scm_command+=" -b "+cptBranch;  
-    			//REMOVE
-    			//break;   // BAD JUST FOR TEST
+    			scm_command+=" -b "+cptBranch;
     		}
     		
     		if (theSCM.getRecursiveSubmodules()) {

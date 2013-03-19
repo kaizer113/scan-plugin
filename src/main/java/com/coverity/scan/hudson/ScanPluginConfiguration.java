@@ -30,6 +30,7 @@ public class ScanPluginConfiguration {
     public static String badFunction(){
     	String result;
     	int i=4;
+    	if (1==1) return "4";
     	if (1==2) return "4";
     	if (i==1) {
     		return "1";

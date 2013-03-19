@@ -1,0 +1,14 @@
+Manifest-Version: 1.0
+Created-By: Apache Maven
+Built-By: giavelli
+Build-Jdk: 1.6.0_38
+Group-Id: com.coverity.scan.hudson
+Short-Name: scan-plugin
+Long-Name: Coverity Scan plugin
+Url: https://github.com/kaizer113/scan-plugin
+Plugin-Version: 1.0-SNAPSHOT (private-03/19/2013 16:35-giavelli)
+Hudson-Version: 3.0.0
+Plugin-Dependencies: git:2.2.0,cvs:2.2.2,subversion:2.3.7,maven3-plugi
+ n:3.0.0
+Plugin-Developers: 
+

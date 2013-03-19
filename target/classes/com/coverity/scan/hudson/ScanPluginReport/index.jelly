@@ -1,0 +1,16 @@
+<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define" xmlns:l="/lib/layout"
+         xmlns:t="/lib/hudson" xmlns:f="/lib/form">
+    <l:layout xmlns:plugin="/hudson/plugins/scan-plugin/tags">
+        <l:main-panel>
+            <h1>${it.displayName}</h1>
+            <j:if test="${!it.dataUpdated}">                
+                <h2>${it.noDataYet}</h2>
+            </j:if>
+            <j:if test="${it.dataUpdated}">
+	        ${it.report}
+            </j:if>
+            Your project is ${it.projectName}.
+            Your build is ${it.buildNumber}.
+        </l:main-panel>
+    </l:layout>
+</j:jelly>

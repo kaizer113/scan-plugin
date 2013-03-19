@@ -1,0 +1,8 @@
+META-INF\annotations\hudson.Extension
+com\coverity\scan\hudson\ScanPluginBuilder\DescriptorImpl\doCheckName.stapler
+com\coverity\scan\hudson\ScanPluginConfiguration.class
+com\coverity\scan\hudson\ScanPluginReport.class
+com\coverity\scan\hudson\ScanPluginBuilder.class
+com\coverity\scan\hudson\ScanPluginBuilder$DescriptorImpl.class
+com\coverity\scan\hudson\ScanPluginBuilder.stapler
+com\coverity\scan\hudson\ScanPluginBuilder$1.class

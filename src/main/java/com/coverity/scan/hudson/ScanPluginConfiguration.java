@@ -12,7 +12,7 @@ public class ScanPluginConfiguration {
     public static final String ICON_FILE_NAME = "graph.gif";
     public static final String NO_DATA_YET = "Sorry Coverity scan results are not available yet, check back later.";
     public static final String YES_DATA = "Your results have been received from Coverity.";
-    public static final String SUBMIT_URL = "http://scan6.coverity.com/cgi-bin/eclipse_submit.py";
+    public static final String SUBMIT_URL = "http://scan6.coverity.com/cgi-bin/eclipse_submit.v2.py";
     public static final String REPORT_URL = "http://scan6.coverity.com/cgi-bin/get_snapshot_detail.py";
     
     public static String encodeUTF8(String str){

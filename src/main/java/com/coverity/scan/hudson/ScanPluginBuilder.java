@@ -88,15 +88,14 @@ import java.util.logging.Logger;
  */
 public class ScanPluginBuilder extends Builder {
 
-    private String name;
-	private String password;
+	private String token;
 	private String email;
 	private String project;
 	private String build_number;
 	private String proj_scm;
 	private String scm_command;
 	private String jvm_options;
-	private String[] scm_commands;
+	//private String[] scm_commands;
 	private String proj_builder;
 	private String build_command;
 	private String build_comments;
@@ -104,23 +103,18 @@ public class ScanPluginBuilder extends Builder {
 
     // Fields in config.jelly must match the parameter names in the "DataBoundConstructor"
     @DataBoundConstructor
-    public ScanPluginBuilder(String name, String password, String email) {
-        this.name = name;
-        this.password = password;
+    public ScanPluginBuilder(String token, String email) {
+        this.token = token;
         this.email = email;
-        this.scm_commands = new String[10];
+        //this.scm_commands = new String[10];
     }
 
     /**
      * We'll use this from the <tt>config.jelly</tt>.
      */
-    public String getName() {
-        return name;
-    }
-    
-    public String getPassword() {
+    public String getToken() {
     // this has to stay public if not the user will need to re-enter the password everytime the config page is opened
-        return password;
+        return token;
     }
 
     public String getEmail() {
@@ -151,9 +145,9 @@ public class ScanPluginBuilder extends Builder {
         return scm_command;
     }
     
-	public String[] getSCMCommands() {
+	/*public String[] getSCMCommands() {
         return scm_commands;
-    }
+    }*/
         
     public String getProjBuilder() {
         return proj_builder;
@@ -166,22 +160,12 @@ public class ScanPluginBuilder extends Builder {
     public String getBuildCommand() {
         return build_command;
     }
-/*
-    private String encodeUTF8(String str){
-    	try {
-    		return URLEncoder.encode(str, "UTF-8");
-    	} catch (UnsupportedEncodingException ex){
-    		Logger.getLogger(ScanPluginBuilder.class.getName()).log(Level.SEVERE, null, ex);
-    		return "Failed to encode";
-    	}    		
-    }*/
     
     private boolean submitToCoverity(AbstractBuild<?,?> build, BuildListener listener){
         URL submitURL;
    		HttpURLConnection connection = null;  
    		
-   		String urlParameters = "username="+ScanPluginConfiguration.encodeUTF8(getName());
-   		urlParameters += "&project="+ScanPluginConfiguration.encodeUTF8(getProject());
+   		String urlParameters = "project="+ScanPluginConfiguration.encodeUTF8(getProject());
    		urlParameters += "&email="+ScanPluginConfiguration.encodeUTF8(getEmail());
    		urlParameters += "&build_number="+ScanPluginConfiguration.encodeUTF8(getBuildNumber());
    		urlParameters += "&proj_scm="+ScanPluginConfiguration.encodeUTF8(getProjSCM());
@@ -192,7 +176,7 @@ public class ScanPluginBuilder extends Builder {
    		urlParameters += "&jvm_options="+ScanPluginConfiguration.encodeUTF8(getJVMOptions());
    		urlParameters += "&git_refs="+ScanPluginConfiguration.encodeUTF8(replaceParameters(getGitRefs(), build));
    		listener.getLogger().println("Options sent to Coverity are: "+urlParameters);
-   		urlParameters += "&password="+ScanPluginConfiguration.encodeUTF8(getPassword());
+   		urlParameters += "&token="+ScanPluginConfiguration.encodeUTF8(getToken());
     	try {
       	    //Create connection
       		submitURL = new URL(ScanPluginConfiguration.SUBMIT_URL);
@@ -297,12 +281,9 @@ public class ScanPluginBuilder extends Builder {
         
         // this also shows how you can consult the global configuration of the builder
         if(getDescriptor().useFrench())
-            listener.getLogger().println("Bonjour, " + name + " " + email + "!");
+            listener.getLogger().println("Bonjour, " + email + "!");
         else
-            listener.getLogger().println("Hello, "+name+" " + email + "!");
-
-		//
-		//printEnv(listener);
+            listener.getLogger().println("Hello, " + email + "!");
 		
         // now showing the build object
         AbstractProject<?,?> buildProj = build.getProject();
@@ -606,7 +587,7 @@ public class ScanPluginBuilder extends Builder {
 		submitToCoverity(build, listener);
 
         // Creating link to the report
-        ScanPluginReport report = new ScanPluginReport(project,getBuildNumber(), getName(), getPassword());
+        ScanPluginReport report = new ScanPluginReport(getProject(), getBuildNumber(), getToken());
         build.addAction(report);
 
         listener.finished(Result.SUCCESS);

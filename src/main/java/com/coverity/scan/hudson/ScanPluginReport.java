@@ -16,14 +16,12 @@ public class ScanPluginReport implements Action {
 	private boolean dataUpdated=false;
 	private String buildNumber;
 	private String projectName;
-	private String username;
-	private String password;
+	private String token;
 	
-	public ScanPluginReport(String theProjectName, String theBuildNumber, String theUsername, String thePassword) {
+	public ScanPluginReport(String theProjectName, String theBuildNumber, String theToken) {
 		buildNumber=theBuildNumber;
 		projectName=theProjectName;
-		username=theUsername;
-		password=thePassword;
+		token=theToken;
 		dataUpdated=true;		
 	}
 	
@@ -88,15 +86,8 @@ public class ScanPluginReport implements Action {
     /**
      * Returns the project name for this report
      */
-	public String getUsername() {
-		return projectName;
-	}
-	
-    /**
-     * Returns the project name for this report
-     */
-	public String getPassword() {
-		return projectName;
+	public String getToken() {
+		return token;
 	}
 	
     /**
@@ -106,8 +97,7 @@ public class ScanPluginReport implements Action {
 	       URL submitURL;
 	   		HttpURLConnection connection = null;  
 	   		
-	   		String urlParameters = "username="+ScanPluginConfiguration.encodeUTF8(getUsername());
-	   		urlParameters += "&password="+ScanPluginConfiguration.encodeUTF8(getPassword());
+	   		String urlParameters = "token="+ScanPluginConfiguration.encodeUTF8(getToken());
 	   		urlParameters += "&project="+ScanPluginConfiguration.encodeUTF8(getProjectName());
 	   		urlParameters += "&build="+ScanPluginConfiguration.encodeUTF8(getBuildNumber());
 	    	try {

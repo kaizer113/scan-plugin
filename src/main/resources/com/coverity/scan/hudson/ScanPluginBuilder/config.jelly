@@ -1,17 +1,16 @@
 <j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define" xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form">
     <script type="text/javascript">
         function openRegister() {
-	           window.open('http://scan.coverity.com/hudson_project_register.html');
+	           window.open(encodeURI('http://scan.coverity.com/hudson_project_register.html?p=${it.name}'));
         }
     </script>
   <f:advanced title="What is Coverity Scan?" align="left" >
   	<f:entry title=""> 
 What is Coverity Scan? <a href="http://scan.coverity.com/faq_eclipse.html#eclipse" target="faq">http://scan.coverity.com/faq_eclipse.html#eclipse</a>
 </f:entry><f:entry title="">
-Not Registered? <a href="#" onclick="openRegister()">Register Here</a>
+Don't have a token? <a href="#" onclick="openRegister()">Click here to register</a>
 </f:entry>
   </f:advanced>
-  <f:entry title="User Name" field="name"><f:textbox /> </f:entry>
-  <f:entry title="User Password" field="password"><f:password /></f:entry>
+  <f:entry title="Project token" field="token"><f:textbox /> </f:entry>
   <f:entry title="Notification Email" field="email"><f:textbox /> </f:entry>
   </j:jelly>

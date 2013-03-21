@@ -3,14 +3,7 @@
     <l:layout xmlns:plugin="/hudson/plugins/scan-plugin/tags">
         <l:main-panel>
             <h1>${it.displayName}</h1>
-            <j:if test="${!it.dataUpdated}">                
-                <h2>${it.noDataYet}</h2>
-            </j:if>
-            <j:if test="${it.dataUpdated}">
-	        ${it.report}
-            </j:if>
-            Your project is ${it.projectName}.
-            Your build is ${it.buildNumber}.
+	    ${it.report}
         </l:main-panel>
     </l:layout>
 </j:jelly>

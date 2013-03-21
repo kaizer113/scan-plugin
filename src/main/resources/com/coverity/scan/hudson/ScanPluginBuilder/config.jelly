@@ -11,6 +11,6 @@ What is Coverity Scan? <a href="http://scan.coverity.com/faq_eclipse.html#eclips
 Don't have a token? <a href="#" onclick="openRegister()">Click here to register</a>
 </f:entry>
   </f:advanced>
-  <f:entry title="Project token" field="token"><f:textbox /> </f:entry>
+  <f:entry title="Project token" field="token"><f:password /> </f:entry>
   <f:entry title="Notification Email" field="email"><f:textbox /> </f:entry>
   </j:jelly>
